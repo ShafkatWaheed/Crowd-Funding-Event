@@ -20,6 +20,7 @@ from app.schemas.funding import (
 )
 from app.schemas.registration import RegistrationDecisionBody, RegistrationResponse
 from app.schemas.ticket import (
+    AttendeeNameUpdate,
     PurchaseGroupReceiptResponse,
     ScanTicketBody,
     ScanTicketResponse,
@@ -44,8 +45,10 @@ from app.schemas.ticket_strategy import (
 from app.schemas.discount_strategy import DiscountStrategyCreate, DiscountStrategyResponse, DiscountStrategyUpdate
 from app.schemas.user import MeResponse, MeUpdate, VerifyBody, VerifyResponse
 from app.schemas.venue import VenueCreate, VenueResponse, VenueUpdate
+from app.schemas.organizer_faq import OrganizerFaqCreate, OrganizerFaqUpdate, OrganizerFaqResponse
 
 __all__ = [
+    "AttendeeNameUpdate",
     "AddEventOrganizerBody",
     "CancelBody",
     "AdminEventItem",
@@ -110,6 +113,9 @@ __all__ = [
     "VenueCreate",
     "VenueResponse",
     "VenueUpdate",
+    "OrganizerFaqCreate",
+    "OrganizerFaqUpdate",
+    "OrganizerFaqResponse",
     "RespondToInvitationBody",
     "UnregisterResponse",
     "UpdateOrganizerPermissionBody",

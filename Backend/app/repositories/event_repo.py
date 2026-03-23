@@ -81,6 +81,11 @@ class EventRepository(BaseRepository[Event]):
         result = await db.execute(q)
         return result.scalar_one_or_none()
 
+    async def get_by_share_token(self, db: AsyncSession, token: str) -> Event | None:
+        """Load a private event by its share token."""
+        q = select(Event).where(Event.share_token == token)
+        return (await db.execute(q)).scalar_one_or_none()
+
     async def create_event(self, db: AsyncSession, event: Event) -> Event:
         """Add a new event, flush, and refresh."""
         db.add(event)
@@ -135,6 +140,7 @@ class EventRepository(BaseRepository[Event]):
         community_rules: bool | None = None,
         include_all_statuses: bool = False,
         sponsorship_only: bool = False,
+        bypass_privacy_filter: bool = False,
         offset: int | None = None,
         limit: int | None = None,
         cursor_start_time: datetime | None = None,
@@ -235,6 +241,9 @@ class EventRepository(BaseRepository[Event]):
                     )
                 )
             )
+        # Hide private events from public discovery (bypass for personal/organizer listings)
+        if not bypass_privacy_filter and not include_all_statuses and organizer_id is None:
+            conditions.append(Event.is_private == False)  # noqa: E712
         if conditions:
             q = q.where(and_(*conditions))
 
@@ -311,6 +320,8 @@ class EventRepository(BaseRepository[Event]):
                     EventStatus.completed,
                 ]),
             )
+        if organizer_id is None:
+            conditions.append(Event.is_private == False)  # noqa: E712
         need_venue_join = city is not None
         if search is not None and search.strip():
             search_term = f"%{search.strip()}%"
@@ -457,7 +468,10 @@ class EventRepository(BaseRepository[Event]):
         """Events ordered by registration_count DESC (public-visible statuses)."""
         q = (
             select(Event)
-            .where(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
+            .where(
+                Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]),
+                Event.is_private == False,  # noqa: E712
+            )
             .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
             .order_by(Event.registration_count.desc(), Event.created_at.desc())
             .limit(limit)
@@ -491,6 +505,7 @@ class EventRepository(BaseRepository[Event]):
                 Event.status.in_([EventStatus.approved, EventStatus.selling_tickets]),
                 Event.start_time.isnot(None),
                 Event.start_time > now,
+                Event.is_private == False,  # noqa: E712
             )
             .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
             .order_by(Event.start_time.asc())
@@ -521,7 +536,10 @@ class EventRepository(BaseRepository[Event]):
         q = (
             select(Event, func.coalesce(func.sum(Funding.amount_cents), 0).label("total_pledged"))
             .outerjoin(Funding, and_(Funding.event_id == Event.id, Funding.status == FundingStatus.pledged))
-            .where(Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]))
+            .where(
+                Event.status.in_([EventStatus.approved, EventStatus.selling_tickets, EventStatus.live]),
+                Event.is_private == False,  # noqa: E712
+            )
             .group_by(Event.id)
             .options(selectinload(Event.venue), selectinload(Event.ticket_strategy))
             .order_by(func.coalesce(func.sum(Funding.amount_cents), 0).desc())
@@ -878,12 +896,18 @@ class EventRepository(BaseRepository[Event]):
                     Event.funding_end_at.isnot(None),
                     Event.funding_end_at <= now,
                 ),
-                # waiting_event_date → cancelled
+                # waiting_event_date → cancelled (deadline passed, no dates)
                 and_(
                     Event.status == EventStatus.waiting_event_date,
                     Event.event_date_deadline.isnot(None),
                     Event.event_date_deadline <= now,
                     Event.start_time.is_(None),
+                ),
+                # waiting_event_date → under_review (start_time passed, never confirmed)
+                and_(
+                    Event.status == EventStatus.waiting_event_date,
+                    Event.start_time.isnot(None),
+                    Event.start_time <= now,
                 ),
                 # selling_tickets / approved → live
                 and_(

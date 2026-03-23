@@ -357,7 +357,7 @@ class _SocialField extends StatelessWidget {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 14),
         floatingLabelStyle: TextStyle(
-          color: isDark ? Colors.white70 : badgeColor,
+          color: isDark ? Colors.white.withValues(alpha: 0.7) : badgeColor,
           fontWeight: FontWeight.w600,
         ),
       ),

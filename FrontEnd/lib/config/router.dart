@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../config/theme.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -45,6 +46,9 @@ import '../screens/sponsor/sponsor_dashboard_screen.dart';
 import '../screens/sponsor/organizer_sponsors_screen.dart';
 import '../screens/sponsor/sponsor_category_templates_screen.dart';
 import '../screens/bookmark/bookmarked_events_screen.dart';
+import '../screens/organizer/faq_screen.dart';
+import '../screens/event/event_faq_screen.dart';
+import '../screens/event/live_poll_screen.dart';
 import '../screens/chat/bid_chat_screen.dart';
 import '../screens/chat/conversations_screen.dart';
 import '../screens/home/tabs/profile_tab.dart';
@@ -172,8 +176,9 @@ GoRouter createRouter(AuthProvider authProvider) {
           final id = int.parse(state.pathParameters['id']!);
           final extra = state.extra as Map<String, dynamic>? ?? {};
           final readOnly = extra['readOnly'] == true;
+          final token = state.uri.queryParameters['token'];
           return fadeScalePage(
-              child: EventDetailScreen(eventId: id, readOnly: readOnly));
+              child: EventDetailScreen(eventId: id, readOnly: readOnly, shareToken: token));
         },
       ),
       GoRoute(
@@ -444,6 +449,31 @@ GoRouter createRouter(AuthProvider authProvider) {
             fadeThroughPage(child: const BookmarkedEventsScreen()),
       ),
 
+      // ─── Organizer FAQ Library ───
+      GoRoute(
+        path: '/faq',
+        pageBuilder: (context, state) =>
+            fadeThroughPage(child: const OrganizerFaqScreen()),
+      ),
+
+      // ─── Event FAQ (public, read-only) ───
+      GoRoute(
+        path: '/events/:id/faq',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return sharedAxisPage(child: EventFaqScreen(eventId: id));
+        },
+      ),
+
+      // ─── Live Poll (full-screen attendee view) ───
+      GoRoute(
+        path: '/events/:id/poll',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return sharedAxisPage(child: LivePollScreen(eventId: id));
+        },
+      ),
+
       // ─── Public Profiles (fade-scale) ───
       GoRoute(
         path: '/users/:id/profile',
@@ -507,7 +537,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            Icon(Icons.error_outline, size: 64, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(height: 16),
             const Text('Page not found', style: TextStyle(fontSize: 18)),
             const SizedBox(height: 16),

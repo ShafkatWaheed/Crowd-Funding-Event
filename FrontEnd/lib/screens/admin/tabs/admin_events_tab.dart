@@ -390,8 +390,8 @@ class _AdminEventsTabState extends State<AdminEventsTab> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Leave empty to use organizer/platform default.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('Leave empty to use organizer/platform default.',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context))),
                         const SizedBox(height: 12),
                         ...ctrls.entries.map((entry) => Padding(
                               padding: const EdgeInsets.only(bottom: 8),

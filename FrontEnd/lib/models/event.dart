@@ -46,6 +46,7 @@ class Event {
   final String? genre;
   final bool communityRules;
   final bool postsEnabled;
+  final bool faqEnabled;
   final int? refundDeadlineDays;
   final DateTime? eventDateDeadline;
   final int? ticketStrategyId;
@@ -86,6 +87,11 @@ class Event {
   final int? maxCoOrganizers;
   final int? reservedSpotsReleasePercent;
   final bool releaseTierSpotLimits;
+  final bool isPrivate;
+  final String? shareToken;
+
+  /// True if this is a private closed event (accessible only via share link).
+  bool get isPrivateClosed => isPrivate && registrationType == RegistrationType.closed;
 
   Event({
     required this.id,
@@ -118,6 +124,7 @@ class Event {
     this.genre,
     this.communityRules = false,
     this.postsEnabled = true,
+    this.faqEnabled = false,
     this.refundDeadlineDays,
     this.eventDateDeadline,
     this.ticketStrategyId,
@@ -156,6 +163,8 @@ class Event {
     this.maxCoOrganizers,
     this.reservedSpotsReleasePercent,
     this.releaseTierSpotLimits = false,
+    this.isPrivate = false,
+    this.shareToken,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
@@ -198,6 +207,7 @@ class Event {
       genre: json['genre'],
       communityRules: json['community_rules'] ?? false,
       postsEnabled: json['posts_enabled'] ?? true,
+      faqEnabled: json['faq_enabled'] as bool? ?? false,
       refundDeadlineDays: json['refund_deadline_days'],
       eventDateDeadline: json['event_date_deadline'] != null
           ? DateTime.parse(json['event_date_deadline'])
@@ -242,6 +252,8 @@ class Event {
       maxCoOrganizers: json['max_co_organizers'] as int?,
       reservedSpotsReleasePercent: json['reserved_spots_release_percent'] as int?,
       releaseTierSpotLimits: (json['release_tier_spot_limits'] as bool?) ?? false,
+      isPrivate: json['is_private'] as bool? ?? false,
+      shareToken: json['share_token'] as String?,
     );
   }
 
@@ -324,7 +336,7 @@ class Event {
         ticketsSoldCount: ticketsSoldCount, totalTierCapacity: totalTierCapacity,
         cancellationReason: cancellationReason, reviewNotes: reviewNotes,
         registrationCount: count,
-        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled,
+        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled, faqEnabled: faqEnabled,
         refundDeadlineDays: refundDeadlineDays, eventDateDeadline: eventDateDeadline,
         ticketStrategyId: ticketStrategyId, ticketStrategyName: ticketStrategyName,
         likeCount: likeCount, dislikeCount: dislikeCount,
@@ -349,6 +361,7 @@ class Event {
         maxCoOrganizers: maxCoOrganizers,
         reservedSpotsReleasePercent: reservedSpotsReleasePercent,
         releaseTierSpotLimits: releaseTierSpotLimits,
+        isPrivate: isPrivate, shareToken: shareToken,
       );
 
   Event copyWithViewerData({int? pledgeAmountCents, int? ticketCount}) => Event(
@@ -366,7 +379,7 @@ class Event {
         ticketsSoldCount: ticketsSoldCount, totalTierCapacity: totalTierCapacity,
         cancellationReason: cancellationReason, reviewNotes: reviewNotes,
         registrationCount: registrationCount,
-        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled,
+        genre: genre, communityRules: communityRules, postsEnabled: postsEnabled, faqEnabled: faqEnabled,
         refundDeadlineDays: refundDeadlineDays, eventDateDeadline: eventDateDeadline,
         ticketStrategyId: ticketStrategyId, ticketStrategyName: ticketStrategyName,
         likeCount: likeCount, dislikeCount: dislikeCount,
@@ -391,6 +404,7 @@ class Event {
         maxCoOrganizers: maxCoOrganizers,
         reservedSpotsReleasePercent: reservedSpotsReleasePercent,
         releaseTierSpotLimits: releaseTierSpotLimits,
+        isPrivate: isPrivate, shareToken: shareToken,
       );
 
   /// Whether registering / unregistering is allowed.
@@ -405,8 +419,7 @@ class Event {
   /// During approved (funding), register is inline in FundingCard.
   /// During selling_tickets/live, registration is automatic via ticket purchase.
   bool get canManuallyRegister =>
-      status == EventStatus.draft ||
-      status == EventStatus.waiting_event_date;
+      status == EventStatus.draft;
 }
 
 // ─── Event Metadata Models ───
@@ -786,6 +799,7 @@ class EventCreateRequest {
   final String? genre;
   final bool communityRules;
   final bool postsEnabled;
+  final bool faqEnabled;
   final bool publish;
   final String? startTime;
   final String? endTime;
@@ -811,6 +825,7 @@ class EventCreateRequest {
   final int? maxCoOrganizers;
   final int? reservedSpotsReleasePercent;
   final bool releaseTierSpotLimits;
+  final bool isPrivate;
 
   const EventCreateRequest({
     required this.venueId,
@@ -823,6 +838,7 @@ class EventCreateRequest {
     this.genre,
     this.communityRules = false,
     this.postsEnabled = true,
+    this.faqEnabled = false,
     this.publish = false,
     this.startTime,
     this.endTime,
@@ -848,6 +864,7 @@ class EventCreateRequest {
     this.maxCoOrganizers,
     this.reservedSpotsReleasePercent,
     this.releaseTierSpotLimits = false,
+    this.isPrivate = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -862,6 +879,7 @@ class EventCreateRequest {
       'genre': genre,
       'community_rules': communityRules,
       'posts_enabled': postsEnabled,
+      'faq_enabled': faqEnabled,
       'publish': publish,
     };
     if (startTime != null) data['start_time'] = startTime;
@@ -896,6 +914,7 @@ class EventCreateRequest {
     if (maxCoOrganizers != null && maxCoOrganizers! > 0) data['max_co_organizers'] = maxCoOrganizers;
     if (reservedSpotsReleasePercent != null) data['reserved_spots_release_percent'] = reservedSpotsReleasePercent;
     data['release_tier_spot_limits'] = releaseTierSpotLimits;
+    if (isPrivate) data['is_private'] = true;
     return data;
   }
 }
@@ -909,6 +928,7 @@ class EventUpdateRequest {
   final int? maxReservedSpotsPerUser;
   final String? genre;
   final bool? postsEnabled;
+  final bool? faqEnabled;
   final bool? communityRules;
   final String? startTime;
   final String? endTime;
@@ -929,6 +949,7 @@ class EventUpdateRequest {
   final int? maxCoOrganizers;
   final int? reservedSpotsReleasePercent;
   final bool? releaseTierSpotLimits;
+  final bool? isPrivate;
 
   const EventUpdateRequest({
     this.title,
@@ -939,6 +960,7 @@ class EventUpdateRequest {
     this.maxReservedSpotsPerUser,
     this.genre,
     this.postsEnabled,
+    this.faqEnabled,
     this.communityRules,
     this.startTime,
     this.endTime,
@@ -959,6 +981,7 @@ class EventUpdateRequest {
     this.maxCoOrganizers,
     this.reservedSpotsReleasePercent,
     this.releaseTierSpotLimits,
+    this.isPrivate,
   });
 
   Map<String, dynamic> toJson() {
@@ -971,6 +994,7 @@ class EventUpdateRequest {
     if (maxReservedSpotsPerUser != null) data['max_reserved_spots_per_user'] = maxReservedSpotsPerUser;
     if (genre != null) data['genre'] = genre;
     if (postsEnabled != null) data['posts_enabled'] = postsEnabled;
+    if (faqEnabled != null) data['faq_enabled'] = faqEnabled;
     if (communityRules != null) data['community_rules'] = communityRules;
     if (startTime != null) data['start_time'] = startTime;
     if (endTime != null) data['end_time'] = endTime;
@@ -991,6 +1015,7 @@ class EventUpdateRequest {
     if (maxCoOrganizers != null) data['max_co_organizers'] = maxCoOrganizers;
     if (reservedSpotsReleasePercent != null) data['reserved_spots_release_percent'] = reservedSpotsReleasePercent;
     if (releaseTierSpotLimits != null) data['release_tier_spot_limits'] = releaseTierSpotLimits;
+    if (isPrivate != null) data['is_private'] = isPrivate;
     return data;
   }
 }

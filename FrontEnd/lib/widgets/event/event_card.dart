@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../config/api_config.dart';
 import '../../config/app_icons.dart';
+import '../../config/app_typography.dart';
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/event.dart';
@@ -116,7 +117,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, 20, AppSpacing.lg, AppSpacing.md,
+                AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.md,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -138,11 +139,11 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                       children: [
                         if ((widget.myPledgeAmountCents ?? 0) > 0) ...[
                           const _HeroChip(label: 'Pledged'),
-                          const SizedBox(width: 4),
+                          AppSpacing.hXs,
                         ],
                         if ((widget.myTicketCount ?? 0) > 0) ...[
                           const _HeroChip(label: 'Attending'),
-                          const SizedBox(width: 4),
+                          AppSpacing.hXs,
                         ],
                         if (widget.showSponsorBadge)
                           const _HeroChip(label: 'Sponsored'),
@@ -155,9 +156,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                       Expanded(
                         child: Text(
                           event.title,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                          style: AppTypography.titleLarge.copyWith(
                             color: Colors.white,
                             letterSpacing: -0.3,
                             height: 1.25,
@@ -168,10 +167,15 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                       ),
                       AppSpacing.hSm,
                       _FrostedStatusBadge(status: event.status, hasFunding: event.isFunding),
+                      if (event.isPrivate) ...[
+                        AppSpacing.hXs,
+                        Icon(Icons.lock_outline, size: 14, color: Colors.white.withValues(alpha: 0.7)),
+                      ],
                       if (event.ageRestricted) ...[
-                        const SizedBox(width: 6),
+                        AppSpacing.hXs,
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                           decoration: BoxDecoration(
                             color: AppTheme.errorColor.withValues(alpha: 0.7),
                             borderRadius: AppRadius.pill,
@@ -179,12 +183,15 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                           ),
                           child: Text(
                             '${event.minAge}+',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                            style: AppTypography.labelSmall.copyWith(
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],
                       if (widget.onBookmarkToggle != null) ...[
-                        const SizedBox(width: 6),
+                        AppSpacing.hXs,
                         _BookmarkButton(
                           isBookmarked: widget.isBookmarked,
                           onTap: widget.onBookmarkToggle!,
@@ -207,7 +214,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
         event.status == EventStatus.approved;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -233,7 +241,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               color: AppIcons.genreColor(event.genre!, isDark: Theme.of(context).brightness == Brightness.dark),
             ),
           ],
-          const SizedBox(height: 8),
+          AppSpacing.vSm,
           Row(
             children: [
               _StatChip(
@@ -277,7 +285,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             ],
           ),
           if (hasFunding) ...[
-            const SizedBox(height: 8),
+            AppSpacing.vSm,
             _FundingBarA(event: event, isDark: isDark),
           ],
         ],
@@ -300,18 +308,15 @@ class _HeroChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.50),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.pill,
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
+        style: AppTypography.badge.copyWith(color: Colors.white),
       ),
     );
   }
@@ -353,13 +358,11 @@ class _FrostedStatusBadge extends StatelessWidget {
             const _LivePulseDot()
           else
             Icon(icon, size: 11, color: color),
-          const SizedBox(width: 4),
+          AppSpacing.hXs,
           Text(
             label,
-            style: TextStyle(
+            style: AppTypography.labelSmall.copyWith(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
             ),
           ),
@@ -504,7 +507,7 @@ class _InfoRow extends StatelessWidget {
             height: 26,
             decoration: BoxDecoration(
               color: c.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.sm,
             ),
             child: Icon(icon, size: 14, color: c),
           ),
@@ -512,10 +515,8 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
+              style: AppTypography.caption.copyWith(
                 color: AppTheme.textPrimaryOf(context),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -583,9 +584,7 @@ class _FundingBarA extends StatelessWidget {
           children: [
             Text(
               '$pct% raised',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+              style: AppTypography.labelSmall.copyWith(
                 color: isFunded ? AppTheme.successColor : AppTheme.orangeColor,
               ),
             ),
@@ -593,11 +592,10 @@ class _FundingBarA extends StatelessWidget {
               const Spacer(),
               Icon(Icons.timer_rounded, size: 11,
                   color: AppTheme.textSecondaryOf(context)),
-              const SizedBox(width: 4),
+              AppSpacing.hXs,
               Text(
                 timeLabel,
-                style: TextStyle(
-                  fontSize: 11,
+                style: AppTypography.labelSmall.copyWith(
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondaryOf(context),
                 ),
@@ -622,7 +620,8 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(right: AppSpacing.sm),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
         borderRadius: AppRadius.sm,
@@ -639,9 +638,8 @@ class _StatChip extends StatelessWidget {
           Flexible(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.labelMedium.copyWith(
+                letterSpacing: 0,
                 color: color ?? AppTheme.textPrimaryOf(context),
               ),
               overflow: TextOverflow.ellipsis,

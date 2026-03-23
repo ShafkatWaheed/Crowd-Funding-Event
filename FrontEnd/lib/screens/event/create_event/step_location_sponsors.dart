@@ -47,6 +47,8 @@ class StepLocationSponsors extends StatelessWidget {
   final ValueChanged<bool> onCommunityRulesChanged;
   final bool postsEnabled;
   final ValueChanged<bool> onPostsEnabledChanged;
+  final bool faqEnabled;
+  final ValueChanged<bool> onFaqEnabledChanged;
   // Sponsorship
   final List<EditableSponsorCategory> localCategories;
   final List<SponsorCategoryTemplate> sponsorTemplates;
@@ -95,6 +97,8 @@ class StepLocationSponsors extends StatelessWidget {
     required this.onCommunityRulesChanged,
     required this.postsEnabled,
     required this.onPostsEnabledChanged,
+    this.faqEnabled = false,
+    required this.onFaqEnabledChanged,
     required this.localCategories,
     required this.sponsorTemplates,
     required this.templatesLoading,
@@ -174,6 +178,8 @@ class StepLocationSponsors extends StatelessWidget {
                   onCommunityRulesChanged: onCommunityRulesChanged,
                   postsEnabled: postsEnabled,
                   onPostsEnabledChanged: onPostsEnabledChanged,
+                  faqEnabled: faqEnabled,
+                  onFaqEnabledChanged: onFaqEnabledChanged,
                 ),
               ],
             ),

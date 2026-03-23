@@ -82,8 +82,8 @@ class _SponsorTicketCardState extends State<SponsorTicketCard> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.confirmation_number_rounded,
-                color: Colors.white70, size: 20),
+            Icon(Icons.confirmation_number_rounded,
+                color: Colors.white.withValues(alpha: 0.7), size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -144,29 +144,29 @@ class _SponsorTicketCardState extends State<SponsorTicketCard> {
     return Row(
       children: [
         if (startDt != null) ...[
-          const Icon(Icons.schedule_rounded, size: 12, color: Colors.white60),
+          Icon(Icons.schedule_rounded, size: 12, color: Colors.white.withValues(alpha: 0.6)),
           const SizedBox(width: 4),
           Text(
             AppDateFormat.dateOnly(startDt),
-            style: const TextStyle(fontSize: 11, color: Colors.white60),
+            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
           ),
           if (venueName != null)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 5),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
               child: Text('\u2022',
-                  style: TextStyle(fontSize: 8, color: Colors.white38)),
+                  style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.38))),
             ),
         ],
         if (venueName != null) ...[
-          const Icon(Icons.location_on_rounded,
-              size: 12, color: Colors.white60),
+          Icon(Icons.location_on_rounded,
+              size: 12, color: Colors.white.withValues(alpha: 0.6)),
           const SizedBox(width: 3),
           Flexible(
             child: Text(
               venueName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Colors.white60),
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
             ),
           ),
         ],
@@ -184,8 +184,8 @@ class _SponsorTicketCardState extends State<SponsorTicketCard> {
       children: [
         _headerChip(
           '${ticket.categories.length} categor${ticket.categories.length == 1 ? "y" : "ies"}',
-          Colors.white24,
-          Colors.white70,
+          Colors.white.withValues(alpha: 0.24),
+          Colors.white.withValues(alpha: 0.7),
         ),
         const SizedBox(width: 6),
         if (paidCount > 0)

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../config/app_icons.dart';
+import '../../../config/app_typography.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../db/app_database.dart';
@@ -416,10 +417,8 @@ class _HomeTabState extends State<HomeTab> {
                             user != null
                                 ? user.displayLabel[0].toUpperCase()
                                 : 'C',
-                            style: const TextStyle(
+                            style: AppTypography.headlineLarge.copyWith(
                               color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
@@ -431,17 +430,13 @@ class _HomeTabState extends State<HomeTab> {
                           children: [
                             Text(
                               'Welcome back',
-                              style: TextStyle(
-                                fontSize: 13,
+                              style: AppTypography.caption.copyWith(
                                 color: AppTheme.textSecondaryOf(context),
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             Text(
                               user?.displayLabel ?? 'Guest',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
+                              style: AppTypography.headlineLarge.copyWith(
                                 letterSpacing: -0.5,
                                 color: AppTheme.textPrimaryOf(context),
                               ),
@@ -490,7 +485,7 @@ class _HomeTabState extends State<HomeTab> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.lg,
-                        vertical: 14,
+                        vertical: AppSpacing.lg,
                       ),
                     ),
                     onChanged: (_) => _homeSearch(),
@@ -568,8 +563,7 @@ class _HomeTabState extends State<HomeTab> {
                                     ? AppTheme.accentColor
                                     : AppTheme.dividerOf(context),
                               ),
-                              labelStyle: TextStyle(
-                                fontSize: 13,
+                              labelStyle: AppTypography.caption.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: _homeCityFilter == null
                                     ? Colors.white
@@ -597,8 +591,7 @@ class _HomeTabState extends State<HomeTab> {
                                       ? AppTheme.accentColor
                                       : AppTheme.dividerOf(context),
                                 ),
-                                labelStyle: TextStyle(
-                                  fontSize: 13,
+                                labelStyle: AppTypography.caption.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: isActive
                                       ? Colors.white
@@ -627,22 +620,22 @@ class _HomeTabState extends State<HomeTab> {
                   vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: AppTheme.warningSurfaceOf(context),
                   borderRadius: AppRadius.md,
-                  border: Border.all(color: Colors.orange.shade200),
+                  border: Border.all(
+                      color: AppTheme.warningColor.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.cloud_off_rounded,
-                        size: AppIconSize.md, color: Colors.orange.shade700),
+                        size: AppIconSize.md, color: AppTheme.warningColor),
                     AppSpacing.hMd,
                     Expanded(
                       child: Text(
                         'You\'re offline — showing cached events',
-                        style: TextStyle(
-                          fontSize: 13,
+                        style: AppTypography.caption.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Colors.orange.shade800,
+                          color: AppTheme.warningColor,
                         ),
                       ),
                     ),
@@ -683,9 +676,7 @@ class _HomeTabState extends State<HomeTab> {
                                 _homeGenre!.substring(1),
                           if (_homeCityFilter != null) _homeCityFilter!,
                         ].join(' in '),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                        style: AppTypography.titleSmall.copyWith(
                           letterSpacing: -0.2,
                           color: AppTheme.textPrimaryOf(context),
                         ),
@@ -693,9 +684,9 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                     TextButton(
                       onPressed: _clearHomeSearch,
-                      child: const Text(
+                      child: Text(
                         'Clear',
-                        style: TextStyle(fontSize: 13),
+                        style: AppTypography.caption,
                       ),
                     ),
                   ],

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../config/api_config.dart';
+import '../../config/app_typography.dart';
 import '../../config/theme.dart';
 import '../../config/design_tokens.dart';
 import '../../models/event.dart';
@@ -17,7 +18,10 @@ import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../models/ticket.dart';
 import '../../providers/pledge_provider.dart';
+import '../../providers/poll_provider.dart';
 import '../../providers/ticket_provider.dart';
+import '../../widgets/event/live_poll_card.dart';
+import '../organizer/create_poll_screen.dart';
 import '../../widgets/animated_list_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_state.dart';
@@ -38,6 +42,9 @@ class EventDetailScreen extends StatefulWidget {
   /// When true (e.g. from admin user detail), hide edit/delete and organizer actions.
   final bool readOnly;
 
+  /// Share token for private events — passed as ?token= query param to the backend.
+  final String? shareToken;
+
   bool get isPreview => previewEvent != null;
 
   const EventDetailScreen({
@@ -46,6 +53,7 @@ class EventDetailScreen extends StatefulWidget {
     this.previewEvent,
     this.previewImages,
     this.readOnly = false,
+    this.shareToken,
   });
 
   @override
@@ -55,6 +63,7 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   List<EventImage> _images = [];
   final ScrollController _scrollCtrl = ScrollController();
+  PollProvider? _pollProvider;
   bool _scrolledPastHero = false;
   // Hero image height. The title card overlaps the hero bottom by _heroOverlap dp,
   // rendering on top via Stack z-order (card is above hero in the SliverToBoxAdapter Stack).
@@ -96,13 +105,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _scrollCtrl.addListener(_onScroll);
     if (!widget.isPreview) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<EventProvider>().loadEvent(widget.eventId);
+        context.read<EventProvider>().loadEvent(widget.eventId, shareToken: widget.shareToken);
         _loadImages();
         _checkRegistration();
         _loadMyTicketCount();
         _loadMyReservedSpots();
         _loadRevenue();
         _checkBookmark();
+        _pollProvider = context.read<PollProvider>();
+        _pollProvider!.startPolling(widget.eventId);
       });
     }
   }
@@ -110,6 +121,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _pollProvider?.stopPolling();
     super.dispose();
   }
 
@@ -386,11 +398,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         color: AppTheme.accentColor.withValues(alpha: 0.4)),
                   ),
                   child: Text('VIEW ONLY (ADMIN)',
-                      style: TextStyle(
-                          fontSize: 10,
+                      style: AppTypography.badge.copyWith(
                           fontWeight: FontWeight.w800,
-                          color: AppTheme.accentColor,
-                          letterSpacing: 0.5)),
+                          color: AppTheme.accentColor)),
                 ),
               if (widget.isPreview)
                 Container(
@@ -404,19 +414,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             AppTheme.warningColor.withValues(alpha: 0.4)),
                   ),
                   child: Text('PREVIEW',
-                      style: TextStyle(
-                          fontSize: 10,
+                      style: AppTypography.badge.copyWith(
                           fontWeight: FontWeight.w800,
-                          color: AppTheme.warningColor,
-                          letterSpacing: 0.5)),
+                          color: AppTheme.warningColor)),
                 ),
               const SizedBox(width: 8),
             ],
             Expanded(
               child: Text(
                 event.title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 16),
+                style: AppTypography.titleMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -524,8 +531,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 Expanded(
                   child: Text(
                     event.title,
-                    style: TextStyle(
-                      fontSize: 24,
+                    style: AppTypography.headlineLarge.copyWith(
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.7,
                       height: 1.2,
@@ -683,13 +689,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ),
           ),
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.black26, Colors.transparent, Colors.black38],
-              stops: [0.0, 0.4, 1.0],
+              colors: [Colors.black.withValues(alpha: 0.26), Colors.transparent, Colors.black.withValues(alpha: 0.38)],
+              stops: const [0.0, 0.4, 1.0],
             ),
           ),
         ),
@@ -802,8 +808,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       AppSpacing.hSm,
                       Text(
                         'About',
-                        style: TextStyle(
-                          fontSize: 13,
+                        style: AppTypography.caption.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textSecondaryOf(context),
                           letterSpacing: 0.5,
@@ -881,6 +886,44 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
         // Getting There
         GettingThereCard(event: event),
+
+        // FAQ Button
+        if (!widget.isPreview && event.faqEnabled) ...[
+          AppSpacing.vMd,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/events/${widget.eventId}/faq'),
+              icon: const Icon(Icons.help_outline_rounded),
+              label: const Text('View FAQ'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.md,
+                ),
+              ),
+            ),
+          ),
+          AppSpacing.vSm,
+        ],
+
+        // Live Poll Card — visible when event is live and a poll is active
+        if (!widget.isPreview && event.status == EventStatus.live) ...[
+          Consumer<PollProvider>(
+            builder: (context, pollProvider, _) {
+              final poll = pollProvider.activePoll;
+              if (poll == null) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppSpacing.vMd,
+                  LivePollCard(poll: poll, eventId: widget.eventId),
+                  AppSpacing.vSm,
+                ],
+              );
+            },
+          ),
+        ],
 
         // Status Banners
         if (event.pendingCancellation != null)
@@ -979,8 +1022,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   Text(
                     'As a sponsor, you can bid on sponsorships for this event.',
-                    style: TextStyle(
-                        fontSize: 13,
+                    style: AppTypography.caption.copyWith(
                         color: AppTheme.textSecondaryOf(context)),
                     textAlign: TextAlign.center,
                   ),
@@ -1018,6 +1060,33 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               revenueCents: _revenueCents,
               onRefresh: _refreshAll,
             ),
+
+          // Live Poll — organizer can create/manage polls during live event
+          if (user != null &&
+              (user.isOrganizer || user.isAdmin) &&
+              !widget.readOnly &&
+              event.status == EventStatus.live) ...[
+            AppSpacing.vMd,
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    showCreatePollSheet(context, widget.eventId),
+                icon: const Icon(Icons.how_to_vote_rounded),
+                label: const Text('Live Poll'),
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  foregroundColor: AppTheme.accentColor,
+                  side: BorderSide(
+                      color: AppTheme.accentColor.withValues(alpha: 0.6)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.md,
+                  ),
+                ),
+              ),
+            ),
+          ],
 
           // Ticket Tier Management
           if (user != null &&
@@ -1078,7 +1147,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
 
 
-    if (event.totalReservedSpots > 0 && !event.isFunding) {
+    if (event.totalReservedSpots > 0 && !event.isFunding &&
+        event.status != EventStatus.waiting_event_date) {
       items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));
     }
 
@@ -1181,16 +1251,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               backgroundColor: AppTheme.accentColor.withValues(alpha: 0.15),
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
+                style: AppTypography.headlineLarge.copyWith(
                     color: AppTheme.accentColor),
               ),
             ),
             AppSpacing.vMd,
             Text(name,
-                style: TextStyle(
-                    fontSize: 20,
+                style: AppTypography.headlineMedium.copyWith(
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimaryOf(ctx))),
             AppSpacing.vSm,

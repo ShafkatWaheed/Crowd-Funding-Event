@@ -91,8 +91,9 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadEvent(int id, {bool forceRefresh = false}) async {
-    if (!forceRefresh) {
+  Future<void> loadEvent(int id, {bool forceRefresh = false, String? shareToken}) async {
+    // Bypass cache when a share token is provided (private event access)
+    if (!forceRefresh && shareToken == null) {
       final cached = _eventCache[id];
       if (cached != null && DateTime.now().difference(cached.timestamp) < _cacheTtl) {
         _selectedEvent = cached.data;
@@ -107,8 +108,11 @@ class EventProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _selectedEvent = await _repo.getEvent(id);
-      _eventCache[id] = _CacheEntry(_selectedEvent!, DateTime.now());
+      _selectedEvent = await _repo.getEvent(id, shareToken: shareToken);
+      // Don't cache private events — they require token validation on every load
+      if (_selectedEvent != null && !_selectedEvent!.isPrivate) {
+        _eventCache[id] = _CacheEntry(_selectedEvent!, DateTime.now());
+      }
     } catch (e) {
       _error = ApiError.extractMessage(e, fallback: 'Failed to load event details.');
     }

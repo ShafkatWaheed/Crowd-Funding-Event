@@ -7,6 +7,7 @@ from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role
 from app.logger import get_logger, log_step
 from app.models.user import User, UserRole
 from app.schemas import (
+    AttendeeNameUpdate,
     PurchaseGroupReceiptResponse,
     ScanTicketBody,
     ScanTicketResponse,
@@ -41,9 +42,9 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
     scanned_by_name = None
     if getattr(sale, "scanned_by", None) and sale.scanned_by:
         scanned_by_name = safe_display_name(sale.scanned_by)
-    attendee_name = None
+    buyer_name = None
     if getattr(sale, "user", None) and sale.user:
-        attendee_name = safe_display_name(sale.user)
+        buyer_name = safe_display_name(sale.user)
     return TicketSaleResponse(
         id=sale.id,
         event_id=sale.event_id,
@@ -54,7 +55,8 @@ def _ticket_sale_to_response(sale) -> TicketSaleResponse:
         receipt_number=getattr(sale, "receipt_number", None),
         tier_name=sale.ticket_tier.name if sale.ticket_tier else None,
         event_title=sale.event.title if sale.event else None,
-        attendee_display_name=attendee_name,
+        attendee_display_name=buyer_name,
+        attendee_name=getattr(sale, "attendee_name", None),
         amount_paid_cents=sale.amount_paid_cents,
         discount_applied_cents=sale.discount_applied_cents,
         commission_cents=getattr(sale, "commission_cents", 0) or 0,
@@ -370,6 +372,22 @@ async def scan_ticket(
         db, event_id=event_id, ticket_code=ticket_code, scanned_by_user=current_user,
     )
     return ScanTicketResponse(already_scanned=already_scanned, ticket=_ticket_sale_to_organizer_response(sale))
+
+
+@router.patch("/{event_id}/tickets/{sale_id}/attendee-name", response_model=TicketSaleResponse)
+async def set_attendee_name(
+    event_id: int,
+    sale_id: int,
+    body: AttendeeNameUpdate,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """Set or update the attendee name on a ticket (ticket holder or event organizer)."""
+    sale = await ticket_service.set_attendee_name(
+        db, sale_id=sale_id, user_id=current_user.id, event_id=event_id, name=body.name
+    )
+    await db.commit()
+    return _ticket_sale_to_response(sale)
 
 
 @router.get("/{event_id}/tickets/{sale_id}/receipt", response_model=TicketReceiptResponse)

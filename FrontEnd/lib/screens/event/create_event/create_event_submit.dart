@@ -24,6 +24,7 @@ EventCreateRequest buildCreateEventPayload({
   required String? genre,
   required bool communityRules,
   required bool postsEnabled,
+  required bool faqEnabled,
   required bool publish,
   required DateTime? startTime,
   required DateTime? endTime,
@@ -48,6 +49,7 @@ EventCreateRequest buildCreateEventPayload({
   required int? maxCoOrganizers,
   required int? reservedSpotsReleasePercent,
   required bool releaseTierSpotLimits,
+  bool isPrivate = false,
 }) {
   final selectedVenue = venues.where((v) => v.id == selectedVenueId).firstOrNull;
 
@@ -62,6 +64,7 @@ EventCreateRequest buildCreateEventPayload({
     genre: genre,
     communityRules: communityRules,
     postsEnabled: postsEnabled,
+    faqEnabled: faqEnabled,
     publish: publish,
     startTime: startTime?.toUtc().toIso8601String(),
     endTime: endTime?.toUtc().toIso8601String(),
@@ -87,6 +90,7 @@ EventCreateRequest buildCreateEventPayload({
     maxCoOrganizers: maxCoOrganizers,
     reservedSpotsReleasePercent: reservedSpotsReleasePercent,
     releaseTierSpotLimits: releaseTierSpotLimits,
+    isPrivate: isPrivate,
   );
 }
 

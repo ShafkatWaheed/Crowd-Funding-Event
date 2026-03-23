@@ -231,7 +231,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.orange.shade700.withValues(alpha: 0.15),
+              color: AppTheme.warningColor.withValues(alpha: 0.15),
               borderRadius: AppRadius.pill,
             ),
             child: Text(
@@ -239,7 +239,7 @@ class _DelegatesCardState extends State<DelegatesCard> {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
-                color: Colors.orange.shade700,
+                color: AppTheme.warningColor,
               ),
             ),
           ),

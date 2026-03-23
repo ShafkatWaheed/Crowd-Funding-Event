@@ -59,7 +59,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[300]),
+                Icon(Icons.chat_bubble_outline, size: 64, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(height: 16),
                 Text(
                   'No conversations yet',
@@ -80,7 +80,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.search_off, size: 48, color: Colors.grey[300]),
+                Icon(Icons.search_off, size: 48, color: AppTheme.textSecondaryOf(context)),
                 const SizedBox(height: 12),
                 Text(
                   'No results for "$_searchQuery"',
@@ -98,7 +98,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             separatorBuilder: (_, __) => Divider(
               height: 1,
               indent: 72,
-              color: Colors.grey.withValues(alpha: 0.15),
+              color: AppTheme.dividerOf(context),
             ),
             itemBuilder: (context, index) {
               final conv = filtered[index];
@@ -207,7 +207,7 @@ class _ConversationTile extends StatelessWidget {
         : (isSponsor ? 'Organizer' : 'Sponsor');
     final roleLabel = isSponsor ? 'Organizer' : 'Sponsor';
 
-    final statusColor = _bidStatusColor(conversation.bidStatus);
+    final statusColor = _bidStatusColor(context, conversation.bidStatus);
     final hasMessages = conversation.lastMessageAt != null;
     final timeStr = hasMessages
         ? _formatTime(conversation.lastMessageAt!)
@@ -298,7 +298,7 @@ class _ConversationTile extends StatelessWidget {
     );
   }
 
-  Color _bidStatusColor(String status) {
+  Color _bidStatusColor(BuildContext context, String status) {
     switch (status) {
       case 'pending':
         return AppTheme.warningColor;
@@ -309,7 +309,7 @@ class _ConversationTile extends StatelessWidget {
       case 'withdrawn':
         return AppTheme.errorColor;
       default:
-        return Colors.grey;
+        return AppTheme.textSecondaryOf(context);
     }
   }
 

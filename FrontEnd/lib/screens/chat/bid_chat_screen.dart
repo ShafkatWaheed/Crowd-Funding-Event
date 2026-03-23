@@ -238,7 +238,7 @@ class _BidChatScreenState extends State<BidChatScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.chat_outlined, size: 64, color: Colors.grey[300]),
+                        Icon(Icons.chat_outlined, size: 64, color: AppTheme.textSecondaryOf(context)),
                         const SizedBox(height: 16),
                         Text(
                           'Start the conversation',
@@ -335,7 +335,7 @@ class _BidChatScreenState extends State<BidChatScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(
-          top: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+          top: BorderSide(color: AppTheme.dividerOf(context)),
         ),
       ),
       child: SafeArea(
@@ -418,7 +418,7 @@ class _DateSeparator extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.grey.withValues(alpha: 0.12),
+            color: AppTheme.dividerOf(context).withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -447,7 +447,7 @@ class _SystemMessage extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.grey.withValues(alpha: 0.08),
+            color: AppTheme.dividerOf(context).withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -556,7 +556,7 @@ class _MessageBubble extends StatelessWidget {
             placeholder: (_, __) => Container(
               width: 180,
               height: 180,
-              color: Colors.grey.withValues(alpha: 0.15),
+              color: AppTheme.dividerOf(context).withValues(alpha: 0.8),
               child: const Center(
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
@@ -564,13 +564,13 @@ class _MessageBubble extends StatelessWidget {
             errorWidget: (_, __, ___) => Container(
               width: 180,
               height: 120,
-              color: Colors.grey.withValues(alpha: 0.15),
-              child: const Column(
+              color: AppTheme.dividerOf(context).withValues(alpha: 0.8),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.broken_image_outlined, size: 32, color: Colors.grey),
-                  SizedBox(height: 4),
-                  Text('Image failed', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  Icon(Icons.broken_image_outlined, size: 32, color: AppTheme.textSecondaryOf(context)),
+                  const SizedBox(height: 4),
+                  Text('Image failed', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
                 ],
               ),
             ),

@@ -19,7 +19,7 @@ class StarRating extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 1),
             child: Icon(
               i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: i < rating ? Colors.amber : AppTheme.textSecondaryOf(context),
+              color: i < rating ? AppTheme.warningColor : AppTheme.textSecondaryOf(context),
               size: size,
             ),
           ),
@@ -44,11 +44,11 @@ class StarRatingDisplay extends StatelessWidget {
       children: [
         ...List.generate(5, (i) {
           if (i < stars.floor()) {
-            return Icon(Icons.star_rounded, color: Colors.amber, size: size);
+            return Icon(Icons.star_rounded, color: AppTheme.warningColor, size: size);
           } else if (i < stars.ceil() && stars % 1 >= 0.3) {
-            return Icon(Icons.star_half_rounded, color: Colors.amber, size: size);
+            return Icon(Icons.star_half_rounded, color: AppTheme.warningColor, size: size);
           }
-          return Icon(Icons.star_outline_rounded, color: Colors.amber.withValues(alpha: 0.4), size: size);
+          return Icon(Icons.star_outline_rounded, color: AppTheme.warningColor.withValues(alpha: 0.4), size: size);
         }),
         const SizedBox(width: 6),
         Text(

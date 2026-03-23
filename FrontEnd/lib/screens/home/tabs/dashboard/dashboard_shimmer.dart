@@ -55,5 +55,5 @@ Widget shimmerBox(BuildContext context, {required double height}) {
       .animate(onPlay: (c) => c.repeat())
       .shimmer(
           duration: 1200.ms,
-          color: isDark ? Colors.white12 : Colors.white60);
+          color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.6));
 }

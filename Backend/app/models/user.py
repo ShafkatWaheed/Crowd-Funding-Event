@@ -64,3 +64,4 @@ class User(Base):
     sponsor_profile = relationship("SponsorProfile", back_populates="user", uselist=False)
     payment_info = relationship("UserPaymentInfo", back_populates="user", uselist=False)
     bank_account = relationship("OrganizerBankAccount", back_populates="user", uselist=False)
+    faqs = relationship("OrganizerFaq", back_populates="organizer", cascade="all, delete-orphan")

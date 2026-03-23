@@ -450,7 +450,7 @@ class _ScheduleSectionRegistrationState
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
+                      color: Colors.black.withValues(alpha: 0.54),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.close,

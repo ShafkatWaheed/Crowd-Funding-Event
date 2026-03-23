@@ -21,13 +21,13 @@
 - **Module(s):** `app.services.platform_settings` (get_int, get_bool).
 - **Main functions:** Reads the following keys:
   - Integer keys: `max_tickets_per_purchase`.
-  - Boolean keys: `max_tickets_frontend_enabled`, `feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`, `feature_community_rules_enabled`.
+  - Boolean keys: `max_tickets_frontend_enabled`, `feature_milestones_enabled`, `feature_schedule_enabled`, `feature_sponsors_enabled`, `feature_community_rules_enabled`, **`offline_ticket_auto_download_enabled`** (used by TicketScannerScreen for auto-download when open; see [71-offline-sync-local-cache](71-offline-sync-local-cache.md)).
   - Returns a dict with key-value pairs for each setting.
 
 ### Frontend ConfigProvider
 
 - **Path:** `FrontEnd/lib/providers/config_provider.dart`
-- **Key functions:** `ConfigProvider(ApiService)` — holds `maxTicketsPerPurchase`, `maxTicketsFrontendEnabled`, `featureMilestonesEnabled`, `featureScheduleEnabled`, `featureSponsorsEnabled`, `featureCommunityRulesEnabled`; `fetchConfig()` calls `_api.getPublicConfig()` and updates these from the response (with defaults if keys missing); `loaded` getter; `notifyListeners()` after fetch so UI can react. Graceful degradation on fetch failure (keeps defaults).
+- **Key functions:** `ConfigProvider(ApiService)` — holds `maxTicketsPerPurchase`, `maxTicketsFrontendEnabled`, `featureMilestonesEnabled`, `featureScheduleEnabled`, `featureSponsorsEnabled`, `featureCommunityRulesEnabled`, **`offlineTicketAutoDownloadEnabled`**; `fetchConfig()` calls `_api.getPublicConfig()` and updates these from the response (with defaults if keys missing); `loaded` getter; `notifyListeners()` after fetch so UI can react. Graceful degradation on fetch failure (keeps defaults).
 - **Integration:** App startup (e.g. in main or root widget) calls `configProvider.fetchConfig()`; screens read the provider to conditionally show milestones, schedule, sponsors, community rules and to enforce max tickets per purchase.
 
 ## Models and DB

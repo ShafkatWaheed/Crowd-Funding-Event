@@ -18,8 +18,8 @@
 
 ## Service layer
 
-- **Module(s):** `app.services.event.crud` (or dashboard), `app.services.dashboard` for trending/popular/coming-soon.
-- **Main functions:** `list_events()` (filters, pagination), `get_trending_events()`, `get_popular_events()`, `get_coming_soon_events()`; map aggregates events by venue for markers.
+- **Module(s):** `app.services.event.crud` (or dashboard), `app.services.dashboard` for trending/popular/coming-soon; `app.services.funding` and `app.services.ticket` for viewer overlay.
+- **Main functions:** `list_events()` (filters, pagination), `get_trending_events()`, `get_popular_events()`, `get_coming_soon_events()`; map aggregates events by venue for markers. **Viewer overlay (optional auth):** When `CurrentUserOptional` is present, `get_user_pledge_amounts_for_events()` and `get_user_ticket_counts_for_events()` overlay per-event viewer pledge amount and ticket count; **EventResponse** includes `viewer_pledge_amount_cents` and `viewer_ticket_count` so Home/Explore can show "Pledged" / "Tickets" chips on event cards without extra calls.
 
 ### Map API
 

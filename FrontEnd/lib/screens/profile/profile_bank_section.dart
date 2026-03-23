@@ -121,7 +121,7 @@ class _ProfileBankSectionState extends State<ProfileBankSection> {
       return [
         Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            Icon(Icons.check_circle, color: AppTheme.successColor, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

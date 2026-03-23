@@ -27,6 +27,7 @@ from app.services.ticket.sales import (
     reject_waitlisted_ticket,
     request_refund,
     scan_ticket,
+    set_attendee_name,
 )
 from app.services.ticket.tiers import (
     create_tier,
@@ -69,6 +70,7 @@ __all__ = [
     "remove_user_discount",
     "request_refund",
     "scan_ticket",
+    "set_attendee_name",
     "set_user_discount",
     "update_tier",
 ]

@@ -93,12 +93,12 @@ class _ProfileTabState extends State<ProfileTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.phone_outlined,
-                          size: 15, color: Colors.white70),
+                      Icon(Icons.phone_outlined,
+                          size: 15, color: Colors.white.withValues(alpha: 0.7)),
                       const SizedBox(width: 6),
                       Text(user.phone!,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14)),
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
                     ],
                   ),
                 ],

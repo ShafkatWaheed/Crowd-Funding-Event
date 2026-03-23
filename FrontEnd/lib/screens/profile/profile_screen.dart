@@ -480,6 +480,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           const ProfilePaymentSection(),
                           if (user.isOrganizer) const ProfileBankSection(),
+                          if (user.isOrganizer)
+                            ProfileSectionCard(
+                              title: 'FAQ Library',
+                              icon: Icons.help_outline_rounded,
+                              delay: 260,
+                              children: [
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.quiz_rounded),
+                                  title: const Text('Manage FAQ Items'),
+                                  subtitle: const Text(
+                                      'Add Q&A shown on events with FAQ enabled'),
+                                  trailing: const Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 16),
+                                  onTap: () => context.push('/faq'),
+                                ),
+                              ],
+                            ),
                           const SizedBox(height: 28),
                           _buildSaveButton(),
                           AppSpacing.vXxl,

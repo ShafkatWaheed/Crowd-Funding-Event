@@ -27,6 +27,9 @@ class StepDatesRegistration extends StatelessWidget {
   final bool hasSchedule;
   final ValueChanged<bool> onHasScheduleChanged;
   final List<ScheduleDayInput> scheduleDays;
+  // Private event toggle (only relevant when registrationType == 'closed')
+  final bool isPrivate;
+  final ValueChanged<bool> onIsPrivateChanged;
   // Helpers
   final VoidCallback onMarkDirty;
   final String Function(DateTime) fmtDt;
@@ -51,6 +54,8 @@ class StepDatesRegistration extends StatelessWidget {
     required this.hasSchedule,
     required this.onHasScheduleChanged,
     required this.scheduleDays,
+    required this.isPrivate,
+    required this.onIsPrivateChanged,
     required this.onMarkDirty,
     required this.fmtDt,
   });
@@ -108,6 +113,17 @@ class StepDatesRegistration extends StatelessWidget {
                   ],
                   onChanged: onRegistrationTypeChanged,
                 ),
+                if (registrationType == 'closed') ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.lock_outline_rounded),
+                    title: const Text('Private Event'),
+                    subtitle: const Text('Hidden from listings — share the link to invite attendees'),
+                    value: isPrivate,
+                    onChanged: onIsPrivateChanged,
+                  ),
+                ],
                 if (startTime != null && endTime != null) ...[
                   const SizedBox(height: 24),
                   ScheduleSectionRegistration(

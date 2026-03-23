@@ -38,6 +38,7 @@ from app.worker.tasks import (
     purge_old_chat_archives,
     transition_event_status,
     reconcile_event_statuses,
+    notify_poll_created,
 )
 
 
@@ -122,6 +123,7 @@ class WorkerSettings:
         purge_old_chat_archives,
         transition_event_status,
         release_reserved_spots,
+        notify_poll_created,
     ]
     cron_jobs = _build_cron_jobs()
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)

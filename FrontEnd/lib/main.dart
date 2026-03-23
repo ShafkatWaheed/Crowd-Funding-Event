@@ -41,6 +41,10 @@ import 'repositories/notification_repository.dart';
 import 'repositories/sponsor_repository.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/venue_repository.dart';
+import 'repositories/faq_repository.dart';
+import 'providers/faq_provider.dart';
+import 'repositories/poll_repository.dart';
+import 'providers/poll_provider.dart';
 import 'models/notification_model.dart' show NotificationPayload;
 import 'screens/notification/notification_screen.dart' show resolveNotificationRoute;
 import 'services/chat_socket_service.dart';
@@ -114,6 +118,8 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         Provider<SponsorRepository>(create: (ctx) => SponsorRepository(ctx.read<Dio>())),
         Provider<VenueRepository>(create: (ctx) => VenueRepository(ctx.read<Dio>())),
         Provider<BookmarkRepository>(create: (ctx) => BookmarkRepository(ctx.read<Dio>())),
+        Provider<FaqRepository>(create: (ctx) => FaqRepository(ctx.read<Dio>())),
+        Provider<PollRepository>(create: (ctx) => PollRepository(ctx.read<Dio>())),
         Provider<NotificationRepository>(create: (ctx) => NotificationRepository(ctx.read<Dio>())),
         Provider<ChatRepository>(create: (ctx) => ChatRepository(ctx.read<Dio>())),
         Provider<AdminRepository>(create: (ctx) => AdminRepository(ctx.read<Dio>())),
@@ -139,6 +145,8 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         ChangeNotifierProvider(create: (ctx) => UserProvider(ctx.read<UserRepository>())),
         ChangeNotifierProvider(create: (ctx) => VenueProvider(ctx.read<VenueRepository>())),
         ChangeNotifierProvider(create: (ctx) => BookmarkProvider(ctx.read<BookmarkRepository>())),
+        ChangeNotifierProvider(create: (ctx) => FaqProvider(ctx.read<FaqRepository>())),
+        ChangeNotifierProvider(create: (ctx) => PollProvider(ctx.read<PollRepository>())),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),

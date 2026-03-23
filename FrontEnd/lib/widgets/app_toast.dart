@@ -34,7 +34,7 @@ class AppToast {
     _show(context,
       message: message,
       icon: Icons.warning_amber_rounded,
-      backgroundColor: Colors.orange,
+      backgroundColor: AppTheme.warningColor,
     );
   }
 

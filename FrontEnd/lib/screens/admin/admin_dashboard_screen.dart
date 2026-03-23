@@ -198,7 +198,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (!mounted) return;
     _messengerKey.currentState?.showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? Colors.red.shade700 : null,
+      backgroundColor: isError ? AppTheme.errorColor : null,
     ));
   }
 

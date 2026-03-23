@@ -245,14 +245,14 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
                 _chip(
                   '\$${(_totalAmount / 100).toStringAsFixed(2)}',
                   Icons.attach_money_rounded,
-                  Colors.teal,
+                  AppTheme.tealColor,
                 ),
                 if (_totalNet > 0 && _totalNet != _totalAmount) ...[
                   const SizedBox(width: 8),
                   _chip(
                     'Net \$${(_totalNet / 100).toStringAsFixed(2)}',
                     Icons.account_balance_wallet_rounded,
-                    Colors.deepPurple,
+                    AppTheme.purpleColor,
                   ),
                 ],
                 if (_searchCtrl.text.isNotEmpty) ...[
@@ -330,7 +330,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
     final statusColor = switch (status) {
       'pledged' => AppTheme.successColor,
       'refunded' => AppTheme.errorColor,
-      'collected' => Colors.teal,
+      'collected' => AppTheme.tealColor,
       _ => AppTheme.textSecondaryOf(context),
     };
 

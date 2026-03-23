@@ -31,6 +31,8 @@ from app.models.audit_log import AuditLog
 from app.models.device_token import DeviceToken
 from app.models.worker_run_log import WorkerRunLog
 from app.models.kyc_document import KycDocument, KycDocumentType, KycDocumentStatus
+from app.models.organizer_faq import OrganizerFaq
+from app.models.event_poll import EventPoll, EventPollVote
 
 __all__ = [
     "User",
@@ -103,4 +105,7 @@ __all__ = [
     "KycDocument",
     "KycDocumentType",
     "KycDocumentStatus",
+    "OrganizerFaq",
+    "EventPoll",
+    "EventPollVote",
 ]

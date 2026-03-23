@@ -78,6 +78,15 @@ class TicketRepository(BaseRepository[TicketSale]):
         await db.refresh(sale)
         return sale
 
+    async def set_attendee_name(
+        self, db: AsyncSession, sale_id: int, name: str | None
+    ) -> TicketSale:
+        sale = await self.get_sale_with_relations(db, sale_id)
+        sale.attendee_name = name
+        await db.flush()
+        await db.refresh(sale)
+        return sale
+
     async def mark_scanned(
         self, db: AsyncSession, sale: TicketSale, scanned_at, scanned_by_id: int
     ) -> None:
@@ -799,6 +808,16 @@ class TicketRepository(BaseRepository[TicketSale]):
             .options(selectinload(TicketSale.user))
         )
         return list((await db.execute(q)).scalars().all())
+
+    async def user_has_ticket(self, db: AsyncSession, event_id: int, user_id: int) -> bool:
+        """Return True if the user has at least one active (non-refunded/cancelled) ticket for the event."""
+        inactive = {TicketSaleStatus.refunded, TicketSaleStatus.cancelled}
+        q = select(TicketSale.id).where(
+            TicketSale.event_id == event_id,
+            TicketSale.user_id == user_id,
+            TicketSale.status.not_in(inactive),
+        ).limit(1)
+        return (await db.execute(q)).scalar_one_or_none() is not None
 
     async def get_user_ticket_counts_for_events(
         self, db: AsyncSession, user_id: int, event_ids: list[int]

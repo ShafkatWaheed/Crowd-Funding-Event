@@ -7,9 +7,9 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** Event Detail (organizer name → bottom sheet + "View Full Profile"); `OrganizerProfileScreen` (stats, event list, average rating).
-- **User action:** Tap organizer name; view profile (display name, username, role, trust score, event count, events, ratings).
-- **API calls:** `getPublicProfile(userId)` GET `/api/v1/users/{id}/public-profile`; `getPublicEvents(userId)` GET `/api/v1/users/{id}/public-events`. EventResponse includes organizer_name.
+- **Screen/Widget:** Event Detail (organizer name → bottom sheet + "View Full Profile"); `OrganizerProfileScreen` (stats, event list, average rating; **Contact & Social** card when organizer has set bio/website/email/social — clickable url_launcher chips for bio, email, website, Instagram/X/Facebook/LinkedIn/YouTube/TikTok handles).
+- **User action:** Tap organizer name; view profile (display name, username, role, trust score, event count, events, ratings, contact and social links).
+- **API calls:** `getPublicProfile(userId)` GET `/api/v1/users/{id}/public-profile`; `getPublicEvents(userId)` GET `/api/v1/users/{id}/public-events`. EventResponse includes organizer_name. Public profile response includes **contact/social** (bio, website_url, contact_email, instagram, twitter, facebook, linkedin, youtube, tiktok) when set.
 
 ## Backend routing
 
@@ -23,8 +23,8 @@
 
 ## Models and DB
 
-- **Models:** `User`, `Event`, `Rating`. Read-only.
-- **Tables updated/read:** `users`, `events`, `ratings`.
+- **Models:** `User` (including contact/social: bio, website_url, contact_email, instagram, twitter, facebook, linkedin, youtube, tiktok), `Event`, `Rating`. Read-only for public profile.
+- **Tables updated/read:** `users`, `events`, `ratings`. Organizer edits contact/social via PATCH `/me` and ProfileScreen (ProfileContactSection); see [01-auth-users](01-auth-users.md).
 
 ## Dependencies
 

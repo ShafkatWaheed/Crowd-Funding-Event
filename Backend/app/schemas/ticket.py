@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TicketTierCreate(BaseModel):
@@ -93,6 +93,10 @@ class TicketPurchaseBody(BaseModel):
         return v
 
 
+class AttendeeNameUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+
+
 class TicketSaleResponse(BaseModel):
     id: int
     event_id: int
@@ -104,7 +108,8 @@ class TicketSaleResponse(BaseModel):
     tier_name: str | None = None
     event_title: str | None = None
     event_status: str | None = None  # event lifecycle status (e.g. selling_tickets, live)
-    attendee_display_name: str | None = None  # name on ticket (holder's display_name or email)
+    attendee_display_name: str | None = None  # buyer's display name (from user profile, unchanged)
+    attendee_name: str | None = None  # user-entered attendee name (stored, for gifted/transferred tickets)
     amount_paid_cents: int
     discount_applied_cents: int
     commission_cents: int = 0

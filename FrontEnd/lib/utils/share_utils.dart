@@ -5,21 +5,24 @@ import '../utils/date_time_utils.dart';
 class ShareUtils {
   ShareUtils._();
 
-  static String eventUrl(int eventId) {
+  static String eventUrl(int eventId, {String? token}) {
+    String base;
     if (kIsWeb) {
-      return Uri.base.resolve('/events/$eventId').toString();
+      base = Uri.base.resolve('/events/$eventId').toString();
+    } else {
+      base = '/events/$eventId';
     }
-    return '/events/$eventId';
+    return token != null ? '$base?token=$token' : base;
   }
 
-  static String shareText(String title, int eventId) {
-    return '$title\n${eventUrl(eventId)}';
+  static String shareText(String title, int eventId, {String? token}) {
+    return '$title\n${eventUrl(eventId, token: token)}';
   }
 
   // ── Gmail compose URL ──
 
-  static Uri gmailUrl(String title, int eventId, {String? dateInfo}) {
-    final url = eventUrl(eventId);
+  static Uri gmailUrl(String title, int eventId, {String? dateInfo, String? token}) {
+    final url = eventUrl(eventId, token: token);
     final body = StringBuffer()
       ..writeln('Hey! I found this event and thought you might be interested:')
       ..writeln()
@@ -42,8 +45,8 @@ class ShareUtils {
 
   // ── WhatsApp share URL ──
 
-  static Uri whatsAppUrl(String title, int eventId) {
-    final text = 'Check out $title!\n${eventUrl(eventId)}';
+  static Uri whatsAppUrl(String title, int eventId, {String? token}) {
+    final text = 'Check out $title!\n${eventUrl(eventId, token: token)}';
     return Uri.parse('https://wa.me/').replace(
       queryParameters: {'text': text},
     );

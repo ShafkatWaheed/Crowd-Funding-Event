@@ -535,7 +535,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg, vertical: AppSpacing.sm + 2),
               decoration: BoxDecoration(
-                color: Colors.orange.shade700,
+                color: AppTheme.warningColor,
                 borderRadius: AppRadius.md,
               ),
               child: Row(

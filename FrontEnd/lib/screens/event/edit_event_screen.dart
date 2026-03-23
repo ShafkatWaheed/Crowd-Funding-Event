@@ -41,6 +41,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   bool _communityRules = false;
   bool _communityRulesFeatureEnabled = true;
   bool _postsEnabled = true;
+  bool _faqEnabled = false;
   int _refundDeadlineDays = 0;
   bool _isLoading = false;
   bool _loadingEvent = true;
@@ -67,6 +68,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
   final _maxCoOrganizersCtrl = TextEditingController();
   final _reservedSpotsReleasePercentCtrl = TextEditingController();
   bool _releaseTierSpotLimits = false;
+  bool _isPrivate = false;
   Map<String, int> _platformLimits = {};
 
   @override
@@ -134,6 +136,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         _genre = event.genre;
         _communityRules = event.communityRules;
         _postsEnabled = event.postsEnabled;
+        _faqEnabled = event.faqEnabled;
         _refundDeadlineDays = event.refundDeadlineDays ?? 0;
         _startTime = event.startTime;
         _endTime = event.endTime;
@@ -154,6 +157,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
         if (event.maxCoOrganizers != null) _maxCoOrganizersCtrl.text = event.maxCoOrganizers.toString();
         if (event.reservedSpotsReleasePercent != null) _reservedSpotsReleasePercentCtrl.text = event.reservedSpotsReleasePercent.toString();
         _releaseTierSpotLimits = event.releaseTierSpotLimits;
+        _isPrivate = event.isPrivate;
         _loadingEvent = false;
       });
     } catch (e) {
@@ -186,6 +190,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       maxReservedSpotsPerUser: int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
       genre: _genre,
       postsEnabled: _postsEnabled,
+      faqEnabled: _faqEnabled,
       communityRules: _event?.status.name == 'draft' ? _communityRules : null,
       startTime: _startTime?.toUtc().toIso8601String(),
       endTime: _endTime?.toUtc().toIso8601String(),
@@ -206,6 +211,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
       maxCoOrganizers: mco != null && mco > 0 ? mco : null,
       reservedSpotsReleasePercent: rsp,
       releaseTierSpotLimits: _releaseTierSpotLimits,
+      isPrivate: _isPrivate,
     );
 
     try {
@@ -332,6 +338,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   _registrationType,
                               genre: _genre,
                               postsEnabled: _postsEnabled,
+                              faqEnabled: _faqEnabled,
                               venues: _venues,
                               selectedVenueId:
                                   _selectedVenueId,
@@ -345,14 +352,19 @@ class _EditEventScreenState extends State<EditEventScreen> {
                                   _accessibilityCtrl,
                               initialShowTransport:
                                   _showTransportInitial,
-                              onRegistrationTypeChanged: (v) =>
-                                  setState(() =>
-                                      _registrationType = v),
+                              isPrivate: _isPrivate,
+                              onIsPrivateChanged: (v) => setState(() => _isPrivate = v),
+                              onRegistrationTypeChanged: (v) => setState(() {
+                                _registrationType = v;
+                                if (_registrationType != 'closed') _isPrivate = false;
+                              }),
                               onGenreChanged: (v) =>
                                   setState(() => _genre = v),
                               onPostsEnabledChanged: (v) =>
                                   setState(
                                       () => _postsEnabled = v),
+                              onFaqEnabledChanged: (v) =>
+                                  setState(() => _faqEnabled = v),
                               onVenueChanged: (v) => setState(
                                   () => _selectedVenueId = v),
                               onStartTimeChanged: (v) =>

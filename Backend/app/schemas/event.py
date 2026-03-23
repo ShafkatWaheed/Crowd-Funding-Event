@@ -50,6 +50,7 @@ class EventCreate(BaseModel):
     genre: str | None = None
     community_rules: bool = False
     posts_enabled: bool = True
+    faq_enabled: bool = False
     refund_deadline_days: int | None = None  # auto-calculated as 20% of funding duration; only when funding set
     ticket_strategy_id: int | None = None  # link to a reusable ticket strategy
     # Parking & Transport
@@ -71,7 +72,14 @@ class EventCreate(BaseModel):
     refund_deadline_percent: int | None = None
     reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
     release_tier_spot_limits: bool = False  # if True, also zeroes tier.max_reserved_spots at release
+    is_private: bool = False  # private events hidden from listings; accessible via share link only
     publish: bool = False  # True = approved immediately, False = draft
+
+    @model_validator(mode="after")
+    def validate_private(self) -> "EventCreate":
+        if self.is_private and self.registration_type != "closed":
+            raise ValueError("is_private=True is only allowed when registration_type='closed'")
+        return self
 
 
 class EventUpdate(BaseModel):
@@ -91,6 +99,7 @@ class EventUpdate(BaseModel):
     genre: str | None = None
     community_rules: bool | None = None
     posts_enabled: bool | None = None
+    faq_enabled: bool | None = None
     refund_deadline_days: int | None = None
     ticket_strategy_id: int | None = None
     # Parking & Transport
@@ -112,6 +121,7 @@ class EventUpdate(BaseModel):
     refund_deadline_percent: int | None = None
     reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
     release_tier_spot_limits: bool | None = None  # if True, also zeroes tier.max_reserved_spots at release
+    is_private: bool | None = None  # set True to make closed event private (accessible only via share link)
 
 
 class ExtendFundingBody(BaseModel):
@@ -204,6 +214,7 @@ class EventResponse(BaseModel):
     genre: str | None = None
     community_rules: bool = False
     posts_enabled: bool = True
+    faq_enabled: bool = False
     refund_deadline_days: int | None = None
     event_date_deadline: datetime | None = None
     ticket_strategy_id: int | None = None
@@ -248,6 +259,8 @@ class EventResponse(BaseModel):
     effective_refund_deadline_percent: int | None = None
     reserved_spots_release_percent: int | None = None
     release_tier_spot_limits: bool = False
+    is_private: bool = False
+    share_token: str | None = None
     created_at: datetime
     updated_at: datetime
 

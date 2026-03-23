@@ -60,6 +60,40 @@ async def _is_cron_enabled(setting_key: str) -> bool:
 
 
 # ═══════════════════════════════════════════
+#  Poll tasks
+# ═══════════════════════════════════════════
+
+async def notify_poll_created(ctx: dict, *, event_id: int, poll_id: int) -> None:
+    """Send in-app + push notifications to all event registrants when a new poll is created."""
+    async with async_session_maker() as db:
+        try:
+            from app.models.notification import NotificationType
+            from app.models.registration import RegistrationStatus
+            from app.repositories.registration_repo import registration_repo as reg_repo
+            from app.services import notification_service as notif_svc
+
+            registrations = await reg_repo.list_by_event(db, event_id)
+            user_ids = [
+                r.user_id
+                for r in registrations
+                if r.status == RegistrationStatus.confirmed
+            ]
+            if user_ids:
+                await notif_svc.create_bulk_notifications(
+                    db,
+                    user_ids=user_ids,
+                    type=NotificationType.poll_created,
+                    title="New Poll Available",
+                    message="A new poll has been posted for your event — tap to vote!",
+                    data={"event_id": event_id, "poll_id": poll_id, "route": f"/events/{event_id}"},
+                )
+                await db.commit()
+                logger.info("Poll %d: notified %d registrants", poll_id, len(user_ids))
+        except Exception:
+            logger.exception("notify_poll_created failed for poll %d", poll_id)
+
+
+# ═══════════════════════════════════════════
 #  Email tasks
 # ═══════════════════════════════════════════
 

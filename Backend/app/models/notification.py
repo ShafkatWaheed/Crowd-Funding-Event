@@ -86,6 +86,9 @@ class NotificationType(str, enum.Enum):
     refund_delayed_organizer = "refund_delayed_organizer"
     refund_retry_requested = "refund_retry_requested"
 
+    # Live polls
+    poll_created = "poll_created"
+
 
 class Notification(Base):
     __tablename__ = "notifications"

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../home_shared.dart';
 import '../../../utils/date_time_utils.dart';
 import '../../../config/app_icons.dart';
+import '../../../config/app_typography.dart';
 import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
@@ -178,7 +179,7 @@ class _ExploreTabState extends State<ExploreTab> {
         duration: AppDuration.normal,
         curve: AppCurve.standard,
         padding: const EdgeInsets.symmetric(
-          horizontal: 14,
+          horizontal: AppSpacing.lg,
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
@@ -193,12 +194,12 @@ class _ExploreTabState extends State<ExploreTab> {
               size: AppIconSize.sm,
               color: isActive ? activeColor : inactiveColor,
             ),
-            const SizedBox(width: 5),
+            AppSpacing.hXs,
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
+              style: AppTypography.labelMedium.copyWith(
                 fontWeight: FontWeight.w700,
+                letterSpacing: 0,
                 color: isActive ? activeColor : inactiveColor,
               ),
             ),
@@ -213,7 +214,7 @@ class _ExploreTabState extends State<ExploreTab> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: 14,
+          horizontal: AppSpacing.lg,
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
@@ -230,8 +231,7 @@ class _ExploreTabState extends State<ExploreTab> {
             AppSpacing.hSm,
             Text(
               label,
-              style: TextStyle(
-                fontSize: 13,
+              style: AppTypography.caption.copyWith(
                 color: AppTheme.textSecondaryOf(context),
               ),
             ),
@@ -289,9 +289,7 @@ class _ExploreTabState extends State<ExploreTab> {
                           user != null && user.isOrganizer
                               ? 'My Events'
                               : 'Explore',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                          style: AppTypography.displayMedium.copyWith(
                             letterSpacing: -0.5,
                             color: AppTheme.textPrimaryOf(context),
                           ),
@@ -301,7 +299,7 @@ class _ExploreTabState extends State<ExploreTab> {
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.sm,
-                            vertical: 5,
+                            vertical: AppSpacing.xs,
                           ),
                           decoration: BoxDecoration(
                             color: AppTheme.accentColor.withValues(alpha: 0.1),
@@ -318,9 +316,7 @@ class _ExploreTabState extends State<ExploreTab> {
                               AppSpacing.hXs,
                               Text(
                                 'Organizer View',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                                style: AppTypography.labelSmall.copyWith(
                                   color: AppTheme.accentColor,
                                 ),
                               ),
@@ -359,7 +355,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.lg,
-                        vertical: 14,
+                        vertical: AppSpacing.lg,
                       ),
                     ),
                     onSubmitted: (_) => _applyFilters(),
@@ -420,18 +416,19 @@ class _ExploreTabState extends State<ExploreTab> {
                               setState(() => _showAdvanced = !_showAdvanced),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      AppSpacing.hXs,
                       SizedBox(
                         height: 34,
                         child: ElevatedButton(
                           onPressed: _applyFilters,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg),
                             shape: RoundedRectangleBorder(
                               borderRadius: AppRadius.sm,
                             ),
                           ),
-                          child: const Text('Go', style: TextStyle(fontSize: 13)),
+                          child: Text('Go', style: AppTypography.caption),
                         ),
                       ),
                     ],
@@ -507,7 +504,7 @@ class _ExploreTabState extends State<ExploreTab> {
                                           color: AppIcons.genreColor(g,
                                               isDark: Theme.of(context).brightness == Brightness.dark),
                                         ),
-                                        const SizedBox(width: 6),
+                                        AppSpacing.hXs,
                                         Text(g[0].toUpperCase() + g.substring(1)),
                                       ],
                                     ),
@@ -596,7 +593,7 @@ class _ExploreTabState extends State<ExploreTab> {
                 AppSpacing.xl,
                 AppSpacing.sm,
                 AppSpacing.xl,
-                6,
+                AppSpacing.sm,
               ),
               child: Row(
                 children: [

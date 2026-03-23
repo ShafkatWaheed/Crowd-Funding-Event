@@ -145,20 +145,20 @@ class _SponsorTicketScreenState extends State<SponsorTicketScreen> {
                       if (_isOffline)
                         Container(
                           width: double.infinity,
-                          color: Colors.orange.shade700.withValues(alpha: 0.12),
+                          color: AppTheme.warningColor.withValues(alpha: 0.12),
                           padding: const EdgeInsets.symmetric(
                               vertical: 8, horizontal: 16),
                           child: Row(
                             children: [
                               Icon(Icons.cloud_off_rounded,
-                                  size: 16, color: Colors.orange.shade700),
+                                  size: 16, color: AppTheme.warningColor),
                               const SizedBox(width: 8),
                               Text(
                                 "You're offline \u2014 showing cached tickets",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.orange.shade700,
+                                  color: AppTheme.warningColor,
                                 ),
                               ),
                             ],

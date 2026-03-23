@@ -7,9 +7,9 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** `LoginScreen` (`/login`), `RegisterScreen` (`/register`), `ProfileScreen` (profile tab or `/profile`).
-- **User action:** Enter email/password → sign in with Firebase; or register with role (customer/organizer/sponsor), display name, **birthday** (required for all roles for age verification), terms checkbox → then backend verify. Create Account is disabled until birthday is selected; age must be at least 13.
-- **API calls:** `verifyToken()` (POST `/api/v1/auth/verify` with `id_token`, `role`, `display_name`, `terms_accepted_at`, **`birthday`** required for new signups); `getMe()` (GET `/api/v1/me`); `updateMe(data)` (PATCH `/api/v1/me`).
+- **Screen/Widget:** `LoginScreen` (`/login`), `RegisterScreen` (`/register`), `ProfileScreen` (profile tab or `/profile` — **ProfileContactSection:** premium gradient header, brand-coloured social badges (IG/X/FB/LinkedIn/YT/TT), bio textarea, contact email, website, social handle fields; organizer and sponsor profiles wire nine TextEditingControllers; contact section saved via UpdateProfileRequest).
+- **User action:** Enter email/password → sign in with Firebase; or register with role (customer/organizer/sponsor), display name, **birthday** (required for all roles for age verification), terms checkbox → then backend verify. Create Account is disabled until birthday is selected; age must be at least 13. Edit profile: bio, website, contact email, Instagram, Twitter, Facebook, LinkedIn, YouTube, TikTok (AppUser, PublicProfile, SponsorPublicProfile, UpdateProfileRequest include these; hasContactInfo getter).
+- **API calls:** `verifyToken()` (POST `/api/v1/auth/verify` with `id_token`, `role`, `display_name`, `terms_accepted_at`, **`birthday`** required for new signups); `getMe()` (GET `/api/v1/me`); `updateMe(data)` (PATCH `/api/v1/me` — accepts **bio, website_url, contact_email, instagram, twitter, facebook, linkedin, youtube, tiktok** for profile contact and social presence).
 
 ## Backend routing
 
@@ -23,8 +23,8 @@
 
 ## Models and DB
 
-- **Models:** `User` (includes `birthday`, optional in DB for backward compatibility; required at signup for new users).
-- **Tables updated/read:** `users` (insert on signup with birthday, update on verify and profile PATCH).
+- **Models:** `User` (includes `birthday`, optional in DB for backward compatibility; required at signup for new users; **contact/social:** bio, website_url, contact_email, instagram, twitter, facebook, linkedin, youtube, tiktok — migration **zz11** adds these nine nullable columns).
+- **Tables updated/read:** `users` (insert on signup with birthday, update on verify and profile PATCH; PATCH `/me` persists contact/social fields). **Public profile responses** (organizer and sponsor) include contact/social so public profile screens can show Contact & Social card.
 
 ## Dependencies
 

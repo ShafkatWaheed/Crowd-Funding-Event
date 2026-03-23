@@ -152,6 +152,10 @@ class TicketProvider extends ChangeNotifier {
           int eventId, int ticketId) =>
       _repo.rejectTicketRefund(eventId, ticketId);
 
+  Future<TicketSale> setAttendeeName(
+          int eventId, int saleId, SetAttendeeNameRequest req) =>
+      _repo.setAttendeeName(eventId, saleId, req);
+
   // ─── Waitlist ───
 
   Future<List<TicketSale>> getWaitlistedTickets(int eventId) =>

@@ -566,7 +566,7 @@ class _CoOrganizerScreenState extends State<CoOrganizerScreen> {
                                       ),
                                       const PopupMenuItem(
                                         value: 'remove',
-                                        child: Text('Remove', style: TextStyle(color: Colors.red)),
+                                        child: Text('Remove', style: TextStyle(color: AppTheme.errorColor)),
                                       ),
                                     ],
                                   )

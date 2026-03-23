@@ -581,7 +581,7 @@ class _EventScheduleSectionState extends State<EventScheduleSection> {
       onTap: () {
         Navigator.of(context).push(PageRouteBuilder(
           opaque: false,
-          barrierColor: Colors.black87,
+          barrierColor: Colors.black.withValues(alpha: 0.87),
           pageBuilder: (_, __, ___) => FullscreenImageViewer(
             imageUrls: [resolvedUrl],
             captions: [item.imageCaption],

@@ -36,7 +36,9 @@ void main() {
     // selectedEvent used in _unregister() for refund eligibility check
     when(() => mockEvent.selectedEvent).thenReturn(null);
     // loadEvent is called after register/unregister for a background refresh
-    when(() => mockEvent.loadEvent(any(), forceRefresh: any(named: 'forceRefresh')))
+    when(() => mockEvent.loadEvent(any(),
+            forceRefresh: any(named: 'forceRefresh'),
+            shareToken: any(named: 'shareToken')))
         .thenAnswer((_) async {});
     when(() => mockEvent.addListener(any())).thenReturn(null);
     when(() => mockEvent.removeListener(any())).thenReturn(null);

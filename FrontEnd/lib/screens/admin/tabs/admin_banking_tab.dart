@@ -372,12 +372,12 @@ class _AdminBankingTabState extends State<AdminBankingTab> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.indigo.shade50,
+        color: AppTheme.accentColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.payment, color: Colors.indigo, size: 20),
+          Icon(Icons.payment, color: AppTheme.accentColor, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

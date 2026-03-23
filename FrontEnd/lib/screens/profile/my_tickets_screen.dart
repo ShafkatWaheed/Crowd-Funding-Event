@@ -241,7 +241,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg, vertical: AppSpacing.sm + 2),
-                color: Colors.orange.shade700,
+                color: AppTheme.warningColor,
                 child: Row(
                   children: [
                     const Icon(Icons.cloud_off_rounded,

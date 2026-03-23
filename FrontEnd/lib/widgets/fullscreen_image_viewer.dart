@@ -26,7 +26,7 @@ class FullscreenImageViewer extends StatefulWidget {
     return Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        barrierColor: Colors.black87,
+        barrierColor: Colors.black.withValues(alpha: 0.87),
         transitionDuration: AppDuration.normal,
         reverseTransitionDuration: AppDuration.normal,
         pageBuilder: (_, __, ___) => FullscreenImageViewer(
@@ -241,7 +241,7 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
                             vertical: AppSpacing.xs,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black54,
+                            color: Colors.black.withValues(alpha: 0.54),
                             borderRadius: AppRadius.pill,
                           ),
                           child: Text(
@@ -279,11 +279,11 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
                       bottom: MediaQuery.of(context).padding.bottom +
                           AppSpacing.lg,
                     ),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [Colors.black87, Colors.transparent],
+                        colors: [Colors.black.withValues(alpha: 0.87), Colors.transparent],
                       ),
                     ),
                     child: Text(
@@ -321,18 +321,18 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
               child: CircularProgressIndicator(
                 value: progress.progress,
                 strokeWidth: 2,
-                color: Colors.white70,
+                color: Colors.white.withValues(alpha: 0.7),
               ),
             );
           },
-          errorWidget: (_, __, ___) => const Column(
+          errorWidget: (_, __, ___) => Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.broken_image_rounded, size: 48, color: Colors.white38),
-              SizedBox(height: 8),
+              Icon(Icons.broken_image_rounded, size: 48, color: Colors.white.withValues(alpha: 0.38)),
+              const SizedBox(height: 8),
               Text(
                 'Failed to load image',
-                style: TextStyle(color: Colors.white38, fontSize: 13),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 13),
               ),
             ],
           ),
@@ -360,8 +360,8 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: const BoxDecoration(
-          color: Colors.black54,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.54),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: Colors.white, size: AppIconSize.md),

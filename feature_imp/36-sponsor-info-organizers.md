@@ -7,9 +7,9 @@
 
 ## Frontend flow
 
-- **Screen/Widget:** `BidManagementScreen`, `OrganizerSponsorsScreen` (tappable sponsor); `SponsorProfileScreen` (`/sponsor-profile/:id`) with company, bid history, ratings.
-- **User action:** Tap sponsor name; view full profile (company, profession, logo, bid stats, average rating).
-- **API calls:** `getSponsorPublicProfile(userId)` GET `/api/v1/users/{id}/sponsor-public-profile`.
+- **Screen/Widget:** `BidManagementScreen`, `OrganizerSponsorsScreen` (tappable sponsor); `SponsorProfileScreen` (`/sponsor-profile/:id`) with company, bid history, ratings; **Contact & Social** card (bio, email, website, social handles — same as organizer public profile) when sponsor has set contact/social.
+- **User action:** Tap sponsor name; view full profile (company, profession, logo, bid stats, average rating, contact and social links).
+- **API calls:** `getSponsorPublicProfile(userId)` GET `/api/v1/users/{id}/sponsor-public-profile`. Sponsor public profile response includes **contact/social** (bio, website_url, contact_email, instagram, twitter, facebook, linkedin, youtube, tiktok) when set; see [01-auth-users](01-auth-users.md) for PATCH `/me` and ProfileContactSection.
 
 ## Backend routing
 

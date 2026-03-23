@@ -226,14 +226,14 @@ class _GlobalTicketSalesScreenState extends State<GlobalTicketSalesScreen> {
                 _chip(
                   '\$${(_totalRevenue / 100).toStringAsFixed(2)}',
                   Icons.attach_money_rounded,
-                  Colors.teal,
+                  AppTheme.tealColor,
                 ),
                 if (_totalCommission > 0) ...[
                   const SizedBox(width: 8),
                   _chip(
                     'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
                     Icons.account_balance_wallet_rounded,
-                    Colors.deepPurple,
+                    AppTheme.purpleColor,
                   ),
                 ],
                 if (_searchCtrl.text.isNotEmpty) ...[

@@ -14,6 +14,7 @@ from app.models.registration import RegistrationStatus
 from app.models.user import User, UserRole
 from app.repositories.event_repo import event_repo
 from app.repositories.registration_repo import registration_repo as reg_repo
+from app.repositories.ticket_repo import ticket_repo
 from app.repositories.venue_repo import venue_repo
 from app.schemas import (
     EVENT_GENRES,
@@ -272,6 +273,7 @@ async def create_event(
         genre=body.genre,
         community_rules=body.community_rules,
         posts_enabled=body.posts_enabled,
+        faq_enabled=body.faq_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
         parking_info=body.parking_info,
@@ -292,6 +294,7 @@ async def create_event(
         age_restricted=body.age_restricted,
         min_age=body.min_age,
         organizer_birthday=current_user.birthday,
+        is_private=body.is_private,
     )
     event = await event_service.get_by_id(db, event.id, load_venue=True)
     from app.worker.event_jobs import schedule_event_transitions
@@ -300,7 +303,12 @@ async def create_event(
 
 
 @router.get("/{event_id}", response_model=EventResponse)
-async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserOptional = None):
+async def get_event(
+    event_id: int,
+    db: ReadDbSession,
+    current_user: CurrentUserOptional = None,
+    token: str | None = Query(None, description="Share token for private events"),
+):
     """Event detail (public). Includes venue so everyone can see where the event is."""
     from app.cache import cache_json_get, cache_json_set
     from app.services.platform_settings import get_int as get_setting_int
@@ -309,7 +317,8 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
 
     if not is_admin:
         cached = await cache_json_get(f"event:{event_id}")
-        if cached is not None:
+        if cached is not None and not cached.get("is_private"):
+            # Only serve non-private events from cache (private need gate check)
             if current_user is not None:
                 event_obj = await event_service.get_by_id(db, event_id)
                 if event_obj:
@@ -323,6 +332,27 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
     event = await event_service.get_by_id(db, event_id, load_venue=True, load_organizer=True)
     if not event:
         raise NotFoundError("Event", event_id)
+
+    # Privacy gate: private events require valid token, organizer/admin access, or active registration/ticket
+    if event.is_private:
+        is_organizer_access = (
+            current_user is not None and (
+                current_user.id == event.organizer_id
+                or current_user.role == UserRole.admin
+                or await event_service.get_co_organizer_role(db, event, current_user) is not None
+            )
+        )
+        token_valid = token is not None and event.share_token is not None and token == event.share_token
+        has_registration = False
+        if current_user is not None and not is_organizer_access and not token_valid:
+            reg = await reg_repo.get_user_registration(db, event_id, current_user.id)
+            if reg and reg.status in (RegistrationStatus.registered, RegistrationStatus.waitlist):
+                has_registration = True
+            if not has_registration:
+                has_registration = await ticket_repo.user_has_ticket(db, event_id, current_user.id)
+        if not is_organizer_access and not token_valid and not has_registration:
+            raise NotFoundError("Event", event_id)  # 404 — don't reveal existence
+
     summary = await funding_service.get_summary(db, event_id=event_id)
     ticket_stats = await ticket_service.get_ticket_sales_stats(db, event_id=event_id)
     tier_cap = await ticket_service.get_total_tier_capacity(db, event_id=event_id)
@@ -348,7 +378,8 @@ async def get_event(event_id: int, db: ReadDbSession, current_user: CurrentUserO
         effective_policy=eff_policy,
     )
 
-    if not is_admin:
+    # Only cache public (non-private) events
+    if not is_admin and not event.is_private:
         ttl = await get_setting_int(db, "cache_ttl_event_detail")
         await cache_json_set(f"event:{event_id}", resp.model_dump(mode="json"), ttl=ttl)
 
@@ -434,6 +465,7 @@ async def update_event(
         genre=body.genre,
         community_rules=body.community_rules,
         posts_enabled=body.posts_enabled,
+        faq_enabled=body.faq_enabled,
         refund_deadline_days=body.refund_deadline_days,
         ticket_strategy_id=body.ticket_strategy_id,
         parking_info=body.parking_info,
@@ -455,6 +487,7 @@ async def update_event(
         min_age=body.min_age,
         organizer_birthday=current_user.birthday,
         needs_approval=needs_approval,
+        is_private=body.is_private,
     )
 
     if event.status in (EventStatus.approved, EventStatus.waiting_event_date,
@@ -491,3 +524,15 @@ async def delete_event(
     event = await event_service.get_or_404(db, event_id)
     await event_service.delete_or_cancel(db, event, current_user)
     return {"ok": True}
+
+
+@router.get("/{event_id}/faqs")
+async def get_event_faqs(event_id: int, db: ReadDbSession, current_user: CurrentUserOptional = None):
+    """Return active FAQs for an event. Returns [] if event has faq_enabled=false."""
+    from app.repositories.organizer_faq_repo import organizer_faq_repo
+    from app.schemas.organizer_faq import OrganizerFaqResponse
+    event = await event_service.get_or_404(db, event_id)
+    if not event.faq_enabled:
+        return []
+    faqs = await organizer_faq_repo.get_active_for_event_organizer(db, event.organizer_id)
+    return [OrganizerFaqResponse.model_validate(f) for f in faqs]

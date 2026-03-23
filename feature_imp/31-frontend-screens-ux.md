@@ -73,6 +73,12 @@ flowchart LR
 - **Reserved spots release (UI):** Event model fields `reservedSpotsReleasePercent`, `releaseTierSpotLimits`; create/edit event policies: reserved spots release percent input and release_tier_spot_limits toggle; statusPill and modernInfoRow spacing tweaks; schedule milestone dialogs layout polish.
 - **Project structure:** `screens/event/` grouped into `receipts/`, `management/`, `pickers/`; event_card, lifecycle_bar, bottom_strip, map_widget under `widgets/event/`; design mockups in `docs/designs/` (schedule_designs, ticket_tier_colors, event_detail_selling_tickets, etc.); root HTML/MD and START_COMMANDS moved to `docs/`.
 
+## Recently implemented (viewer activity chips, ticket share, bookmarks)
+
+- **EventCard viewer activity chips:** EventCard accepts `myPledgeAmountCents`, `myTicketCount`, `showSponsorBadge`; renders "Pledged", "Tickets", "Sponsor" hero chips below the title when the viewer has activity on that event. Home and Explore pass viewer fields from API. **EventProvider:** `viewerDataVersion` counter incremented by `patchViewerData()` so Home/Explore refresh chips without full reload; `patchViewerData(eventId, { pledgeDelta, ticketDelta })` optimistically patches explore list and SQLite cache after pledge/unpledge and ticket purchase; `bumpUserEventsVersion()` replaces direct _registrationVersion bumps.
+- **Ticket share sheet:** `_TicketShareSheetContent` (share_bottom_sheet.dart) renders a styled **TicketExportCard** (dashed divider) and shares it as an image via share_plus (RepaintBoundary capture → PNG → XFile → Share.shareXFiles). Used from ticket receipt / My Tickets.
+- **BookmarkedEventsScreen** refactored to use **BookmarkProvider**. **SyncService:** `isOnline` helper. **SponsorManageTab:** minor UI polish.
+
 ## Improvements
 
 - Wizard unsaved-changes dialog: prevent accidental close. Step validation and error indicators on steps (red circle) improve UX. Contextual "Next: Funding" button label.

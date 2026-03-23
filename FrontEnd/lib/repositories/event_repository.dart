@@ -39,8 +39,9 @@ class EventRepository extends BaseRepository {
     return EventListPage.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
-  Future<Event> getEvent(int id) async {
-    final resp = await dio.get('/events/$id');
+  Future<Event> getEvent(int id, {String? shareToken}) async {
+    final resp = await dio.get('/events/$id',
+        queryParameters: shareToken != null ? {'token': shareToken} : null);
     return Event.fromJson(Map<String, dynamic>.from(resp.data as Map));
   }
 

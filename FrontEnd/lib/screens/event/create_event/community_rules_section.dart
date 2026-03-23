@@ -8,6 +8,8 @@ class CommunityRulesSection extends StatelessWidget {
   final ValueChanged<bool> onCommunityRulesChanged;
   final bool postsEnabled;
   final ValueChanged<bool> onPostsEnabledChanged;
+  final bool faqEnabled;
+  final ValueChanged<bool> onFaqEnabledChanged;
 
   const CommunityRulesSection({
     super.key,
@@ -16,6 +18,8 @@ class CommunityRulesSection extends StatelessWidget {
     required this.onCommunityRulesChanged,
     required this.postsEnabled,
     required this.onPostsEnabledChanged,
+    this.faqEnabled = false,
+    required this.onFaqEnabledChanged,
   });
 
   @override
@@ -92,6 +96,17 @@ class CommunityRulesSection extends StatelessWidget {
           value: postsEnabled,
           activeTrackColor: AppTheme.accentColor,
           onChanged: onPostsEnabledChanged,
+          contentPadding: EdgeInsets.zero,
+        ),
+        const SizedBox(height: 4),
+        SwitchListTile(
+          title: const Text('Enable FAQ',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle:
+              const Text('Show your FAQ library on this event page'),
+          value: faqEnabled,
+          activeTrackColor: AppTheme.accentColor,
+          onChanged: onFaqEnabledChanged,
           contentPadding: EdgeInsets.zero,
         ),
       ],

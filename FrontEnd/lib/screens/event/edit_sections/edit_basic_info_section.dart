@@ -17,6 +17,7 @@ class EditBasicInfoSection extends StatefulWidget {
   final String registrationType;
   final String? genre;
   final bool postsEnabled;
+  final bool faqEnabled;
   final List<Venue> venues;
   final int? selectedVenueId;
   final DateTime? startTime;
@@ -27,9 +28,12 @@ class EditBasicInfoSection extends StatefulWidget {
   final TextEditingController rideshareCtrl;
   final TextEditingController accessibilityCtrl;
   final bool initialShowTransport;
+  final bool isPrivate;
+  final ValueChanged<bool> onIsPrivateChanged;
   final ValueChanged<String> onRegistrationTypeChanged;
   final ValueChanged<String?> onGenreChanged;
   final ValueChanged<bool> onPostsEnabledChanged;
+  final ValueChanged<bool> onFaqEnabledChanged;
   final ValueChanged<int?> onVenueChanged;
   final ValueChanged<DateTime?> onStartTimeChanged;
   final ValueChanged<DateTime?> onEndTimeChanged;
@@ -43,6 +47,7 @@ class EditBasicInfoSection extends StatefulWidget {
     required this.registrationType,
     required this.genre,
     required this.postsEnabled,
+    this.faqEnabled = false,
     required this.venues,
     required this.selectedVenueId,
     required this.startTime,
@@ -53,9 +58,12 @@ class EditBasicInfoSection extends StatefulWidget {
     required this.rideshareCtrl,
     required this.accessibilityCtrl,
     this.initialShowTransport = false,
+    this.isPrivate = false,
+    required this.onIsPrivateChanged,
     required this.onRegistrationTypeChanged,
     required this.onGenreChanged,
     required this.onPostsEnabledChanged,
+    required this.onFaqEnabledChanged,
     required this.onVenueChanged,
     required this.onStartTimeChanged,
     required this.onEndTimeChanged,
@@ -153,6 +161,17 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
           ],
           onChanged: (v) => widget.onRegistrationTypeChanged(v ?? 'open'),
         ),
+        if (widget.registrationType == 'closed') ...[
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.lock_outline_rounded),
+            title: const Text('Private Event'),
+            subtitle: const Text('Hidden from listings — share the link to invite attendees'),
+            value: widget.isPrivate,
+            onChanged: widget.onIsPrivateChanged,
+          ),
+        ],
         const SizedBox(height: 16),
 
         DropdownButtonFormField<String>(
@@ -194,6 +213,17 @@ class _EditBasicInfoSectionState extends State<EditBasicInfoSection> {
           value: widget.postsEnabled,
           activeTrackColor: AppTheme.primaryColor,
           onChanged: widget.onPostsEnabledChanged,
+          contentPadding: EdgeInsets.zero,
+        ),
+        const SizedBox(height: 4),
+        SwitchListTile(
+          title: const Text('Enable FAQ',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle:
+              const Text('Show your FAQ library on this event page'),
+          value: widget.faqEnabled,
+          activeTrackColor: AppTheme.primaryColor,
+          onChanged: widget.onFaqEnabledChanged,
           contentPadding: EdgeInsets.zero,
         ),
 

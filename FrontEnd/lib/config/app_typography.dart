@@ -80,6 +80,14 @@ abstract class AppTypography {
   static TextStyle get labelSmall =>
       GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0);
 
+  /// 13px Inter medium — detail labels, chip text, secondary metadata
+  static TextStyle get caption =>
+      GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, height: 1.4);
+
+  /// 10px Inter bold — status badges and tight pill labels
+  static TextStyle get badge =>
+      GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5);
+
   // ─── Component overrides  (Inter) ─────────────────────────────────────────
   // App bar, buttons, input fields, navigation rail, chips
 

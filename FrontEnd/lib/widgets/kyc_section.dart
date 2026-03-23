@@ -255,7 +255,7 @@ class _KycSectionState extends State<KycSection> {
     return switch (status) {
       'verified' => (Icons.verified, AppTheme.successColor, 'Verified'),
       'submitted' => (Icons.hourglass_top_rounded, AppTheme.warningColor, 'Under Review'),
-      'rejected' => (Icons.error_outline, Colors.red, 'Rejected'),
+      'rejected' => (Icons.error_outline, AppTheme.errorColor, 'Rejected'),
       _ => (Icons.shield_outlined,
             (_kycData?.kycRequiredForRole ?? false) ? AppTheme.warningColor : AppTheme.textSecondaryOf(context),
             (_kycData?.kycRequiredForRole ?? false) ? 'Required' : 'Not Started'),
@@ -326,7 +326,7 @@ class _KycSectionState extends State<KycSection> {
                           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                           if (isRequired) ...[
                             const SizedBox(width: 4),
-                            const Text('*', style: TextStyle(color: Colors.red, fontSize: 13)),
+                            Text('*', style: TextStyle(color: AppTheme.errorColor, fontSize: 13)),
                           ],
                         ],
                       ),
@@ -383,13 +383,13 @@ class _KycSectionState extends State<KycSection> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.06),
+        color: AppTheme.errorColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Rejection reasons:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
+          Text('Rejection reasons:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.errorColor)),
           const SizedBox(height: 4),
           ...docs.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 2),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +15,7 @@ import '../config/theme.dart';
 import '../config/design_tokens.dart';
 import '../models/event.dart';
 import '../models/ticket.dart';
+import '../providers/ticket_provider.dart';
 import '../utils/share_utils.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/app_toast.dart';
@@ -98,12 +101,15 @@ class _ShareSheetContent extends StatelessWidget {
   Widget _divider(BuildContext context) =>
       Divider(height: 1, color: AppTheme.dividerOf(context));
 
+  String? get _shareToken => event.isPrivate ? event.shareToken : null;
+
   Future<void> _openGmail(BuildContext context) async {
     Navigator.pop(context);
     final uri = ShareUtils.gmailUrl(
       event.title,
       event.id,
       dateInfo: ShareUtils.dateInfoString(event),
+      token: _shareToken,
     );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) AppToast.error(context, 'Could not open Gmail');
@@ -112,7 +118,7 @@ class _ShareSheetContent extends StatelessWidget {
 
   Future<void> _openWhatsApp(BuildContext context) async {
     Navigator.pop(context);
-    final uri = ShareUtils.whatsAppUrl(event.title, event.id);
+    final uri = ShareUtils.whatsAppUrl(event.title, event.id, token: _shareToken);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) AppToast.error(context, 'Could not open WhatsApp');
     }
@@ -120,14 +126,14 @@ class _ShareSheetContent extends StatelessWidget {
 
   Future<void> _copyLink(BuildContext context) async {
     Navigator.pop(context);
-    final url = ShareUtils.eventUrl(event.id);
+    final url = ShareUtils.eventUrl(event.id, token: _shareToken);
     await Clipboard.setData(ClipboardData(text: url));
     if (context.mounted) AppToast.success(context, 'Event link copied!');
   }
 
   Future<void> _nativeShare(BuildContext context) async {
     Navigator.pop(context);
-    final text = ShareUtils.shareText(event.title, event.id);
+    final text = ShareUtils.shareText(event.title, event.id, token: _shareToken);
     await Share.share(text);
   }
 }
@@ -145,23 +151,26 @@ class _TicketShareSheetContent extends StatefulWidget {
 
 class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
   final _cardKey = GlobalKey();
-  XFile? _captured;
-  bool _capturing = true;
+  late final TextEditingController _nameCtrl;
+  String? _nameError;
+  bool _saving = false;
+  // The name currently rendered on the offscreen card.
+  String _cardAttendeeName = '';
 
   TicketSale get ticket => widget.ticket;
 
   @override
   void initState() {
     super.initState();
-    // Two nested callbacks so toImage() runs after the engine composites the
-    // first frame (single addPostFrameCallback fires before compositing).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final xfile = await _captureAsXFile();
-        if (mounted) setState(() { _captured = xfile; _capturing = false; });
-      });
-    });
+    final initial = ticket.attendeeName ?? ticket.attendeeDisplayName ?? '';
+    _nameCtrl = TextEditingController(text: initial);
+    _cardAttendeeName = initial;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
   }
 
   Future<XFile?> _captureAsXFile() async {
@@ -193,16 +202,49 @@ class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
     }
   }
 
-  Future<void> _shareImage(BuildContext ctx) async {
-    if (_captured == null) {
-      AppToast.error(ctx, 'Could not export ticket image');
+  Future<void> _onShare(BuildContext ctx) async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Attendee name is required');
       return;
     }
-    Navigator.pop(ctx);
-    await Share.shareXFiles(
-      [_captured!],
-      subject: ticket.eventTitle ?? 'My Ticket',
-    );
+    setState(() { _nameError = null; _saving = true; });
+
+    try {
+      // Save name to server.
+      await ctx.read<TicketProvider>().setAttendeeName(
+        ticket.eventId,
+        ticket.id,
+        SetAttendeeNameRequest(name: name),
+      );
+    } catch (e) {
+      debugPrint('Set attendee name error: $e');
+      // Continue with share even if server save fails.
+    }
+
+    // Rebuild the offscreen card with the entered name, then capture.
+    setState(() => _cardAttendeeName = name);
+
+    // Wait two frames so the engine composites the updated card.
+    final frameCompleter = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => frameCompleter.complete());
+    });
+    await frameCompleter.future;
+
+    if (!mounted) return;
+
+    final xfile = await _captureAsXFile();
+    if (!mounted) return;
+
+    setState(() => _saving = false);
+
+    if (xfile == null) {
+      if (ctx.mounted) AppToast.error(ctx, 'Could not export ticket image');
+      return;
+    }
+    if (ctx.mounted) Navigator.pop(ctx);
+    await Share.shareXFiles([xfile], subject: ticket.eventTitle ?? 'My Ticket');
   }
 
   @override
@@ -221,7 +263,10 @@ class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
           width: 340,
           child: RepaintBoundary(
             key: _cardKey,
-            child: _TicketExportCard(ticket: ticket),
+            child: _TicketExportCard(
+              ticket: ticket,
+              attendeeName: _cardAttendeeName.isNotEmpty ? _cardAttendeeName : null,
+            ),
           ),
         ),
 
@@ -241,13 +286,34 @@ class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
               ),
               AppSpacing.vLg,
 
+              // ── Attendee name field ──
+              TextField(
+                controller: _nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Attendee Name',
+                  hintText: 'Enter the name of the attendee',
+                  errorText: _nameError,
+                  prefixIcon: const Icon(Icons.person_outline_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.md,
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_nameError != null) setState(() => _nameError = null);
+                },
+              ),
+              AppSpacing.vLg,
+
+              Divider(height: 1, color: AppTheme.dividerOf(context)),
+
               _ShareOption(
                 icon: Icons.share_rounded,
                 iconColor: AppTheme.accentColor,
                 label: 'Share Ticket',
                 subtitle: 'Gmail, WhatsApp, and more',
-                loading: _capturing,
-                onTap: () => _shareImage(context),
+                loading: _saving,
+                onTap: () => _onShare(context),
               ),
 
               AppSpacing.vSm,
@@ -259,11 +325,13 @@ class _TicketShareSheetContentState extends State<_TicketShareSheetContent> {
   }
 }
 
+
 // ─── Ticket export card (rendered offscreen, captured as PNG) ─────────────────
 
 class _TicketExportCard extends StatelessWidget {
   final TicketSale ticket;
-  const _TicketExportCard({required this.ticket});
+  final String? attendeeName;
+  const _TicketExportCard({required this.ticket, this.attendeeName});
 
   @override
   Widget build(BuildContext context) {
@@ -328,6 +396,30 @@ class _TicketExportCard extends StatelessWidget {
                 ),
               ],
             ),
+
+            // Attendee name (if set)
+            if (attendeeName != null && attendeeName!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.person_rounded,
+                      color: Colors.white.withValues(alpha: 0.6), size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      attendeeName!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
 
             // Dashed divider
             Padding(

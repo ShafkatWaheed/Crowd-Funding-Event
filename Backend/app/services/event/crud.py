@@ -4,6 +4,7 @@ Event CRUD: auto_transition_status, get_by_id, get_or_404, publish_event, list_e
 import base64
 import json
 import math
+import secrets
 from datetime import datetime, timezone
 from typing import Sequence
 
@@ -68,9 +69,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
         - If start_time NOT set -> waiting_event_date (deadline = funding_end + grace days)
       approved (no funding, event date set) -> stays approved until start_time
       waiting_event_date -> (organizer clicks "Start Selling") -> selling_tickets
+      waiting_event_date -> (event_date_deadline passes, no start_time) -> cancelled + refund
+      waiting_event_date -> (start_time passes, never confirmed) -> under_review (admin decides)
       selling_tickets / approved -> (start_time reaches now) -> live
       live -> (end_time reaches now) -> completed
-      waiting_event_date -> (event_date_deadline passes, no start_time) -> cancelled + refund
     """
     from datetime import timedelta
 
@@ -107,9 +109,10 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                     event.ticket_selling_started_at = now
                     changed = True
 
-        # -- waiting_event_date -> check if deadline passed --
+        # -- waiting_event_date -> check deadlines --
         if status == EventStatus.waiting_event_date:
             if event.event_date_deadline is not None and now >= _tz(event.event_date_deadline) and event.start_time is None:
+                # No dates set by deadline → cancel and refund
                 event.status = EventStatus.cancelled
                 event.cancellation_reason = "Event date was not set within the required deadline. Pledges refunded."
                 if not read_only:
@@ -124,6 +127,33 @@ async def auto_transition_status(db: AsyncSession, event: Event) -> Event:
                         reason=event.cancellation_reason,
                         event_date=event.start_time,
                     ))
+                changed = True
+            elif event.start_time is not None and now >= _tz(event.start_time):
+                # Dates were set but organizer never confirmed / started selling →
+                # escalate to admin for review
+                event.status = EventStatus.under_review
+                event.review_notes = (
+                    "Event start time has passed while still in waiting_event_date. "
+                    "The organizer set dates but never confirmed the event for ticket sales."
+                )
+                event.review_log = (event.review_log or []) + [{
+                    "timestamp": now.isoformat(),
+                    "actor": "system",
+                    "action": "entered_review",
+                    "from_status": "waiting_event_date",
+                    "to_status": "under_review",
+                    "message": "Start time passed without organizer confirming event dates for ticket sales.",
+                }]
+                if not read_only:
+                    from app.services import notification_service as notif_svc
+                    from app.models.notification import NotificationType
+                    await notif_svc.create_notification(
+                        db, user_id=event.organizer_id,
+                        type=NotificationType.event_under_review,
+                        title="Event Under Review",
+                        message=f'Your event "{event.title}" has been sent for admin review because the start time passed without confirmation.',
+                        data={"event_id": event.id},
+                    )
                 changed = True
 
         # -- selling_tickets / approved -> check if event started --
@@ -371,6 +401,7 @@ async def create(
     genre: str | None = None,
     community_rules: bool = False,
     posts_enabled: bool = True,
+    faq_enabled: bool = False,
     refund_deadline_days: int | None = None,
     ticket_strategy_id: int | None = None,
     parking_info: str | None = None,
@@ -391,6 +422,7 @@ async def create(
     age_restricted: bool = False,
     min_age: int | None = None,
     organizer_birthday=None,
+    is_private: bool = False,
 ) -> Event:
     """Create event. At least one of funding_end_at or start_time must be provided."""
     from datetime import timedelta
@@ -511,6 +543,7 @@ async def create(
 
     use_lat = lat if lat is not None else venue.lat
     use_lng = lng if lng is not None else venue.lng
+    share_token = secrets.token_urlsafe(32) if is_private else None
     event = Event(
         organizer_id=organizer_id,
         venue_id=venue_id,
@@ -531,6 +564,7 @@ async def create(
         genre=genre,
         community_rules=community_rules,
         posts_enabled=posts_enabled,
+        faq_enabled=faq_enabled,
         refund_deadline_days=refund_deadline_days,
         ticket_strategy_id=ticket_strategy_id,
         parking_info=parking_info,
@@ -548,6 +582,8 @@ async def create(
         age_restricted=age_restricted,
         min_age=min_age,
         release_tier_spot_limits=release_tier_spot_limits,
+        is_private=is_private,
+        share_token=share_token,
         status=EventStatus.approved if publish else EventStatus.draft,
     )
     if max_discount_percent is not None:
@@ -578,6 +614,7 @@ async def update(
     genre: str | None = None,
     community_rules: bool | None = None,
     posts_enabled: bool | None = None,
+    faq_enabled: bool | None = None,
     refund_deadline_days: int | None = None,
     ticket_strategy_id: int | None = None,
     parking_info: str | None = None,
@@ -599,6 +636,7 @@ async def update(
     min_age: int | None = None,
     organizer_birthday=None,
     needs_approval: bool = False,
+    is_private: bool | None = None,
 ) -> Event:
     """Update event fields (only provided ones). When switching closed->open, auto-approve waitlist up to capacity."""
     old_registration_type = event.registration_type
@@ -627,6 +665,16 @@ async def update(
         event.min_pledge_cents = min_pledge_cents
     if registration_type is not None:
         event.registration_type = registration_type
+        # Coupling: switching to open always clears private flag
+        if registration_type == RegistrationType.open:
+            event.is_private = False
+    if is_private is not None:
+        effective_reg_type = registration_type if registration_type is not None else event.registration_type
+        if is_private and effective_reg_type != RegistrationType.closed:
+            raise ConflictError("is_private=True is only allowed when registration_type='closed'")
+        event.is_private = is_private
+        if is_private and event.share_token is None:
+            event.share_token = secrets.token_urlsafe(32)
     if max_capacity is not None:
         # Capacity floor guard: cannot reduce below tickets_sold + reserved_spots
         if max_capacity < event.max_capacity:
@@ -654,6 +702,8 @@ async def update(
         event.community_rules = community_rules
     if posts_enabled is not None:
         event.posts_enabled = posts_enabled
+    if faq_enabled is not None:
+        event.faq_enabled = faq_enabled
     if refund_deadline_days is not None:
         from app.services import platform_settings as settings_svc
         upd_pct_max = await settings_svc.get_int(db, "refund_deadline_percent_max")

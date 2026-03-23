@@ -64,6 +64,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _communityRules = false;
   bool _communityRulesFeatureEnabled = true;
   bool _postsEnabled = true;
+  bool _faqEnabled = false;
   int _refundDeadlineDays = 7;
   bool _linkFundingToTiers = false;
   int _maxDiscountPercent = 100;
@@ -77,6 +78,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _maxCoOrganizersCtrl = TextEditingController();
   final _reservedSpotsReleasePercentCtrl = TextEditingController();
   bool _releaseTierSpotLimits = false;
+  bool _isPrivate = false;
   Map<String, int> _platformLimits = {};
   bool _publish = true;
   bool _isLoading = false;
@@ -345,7 +347,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       startTime: _startTime, endTime: _endTime, fundingEndAt: _fundingEndAt,
       fundingGoalText: _fundingGoalCtrl.text, minPledgeText: _minPledgeCtrl.text,
       capacityText: _capacityCtrl.text, registrationType: _registrationType, genre: _genre,
-      communityRules: _communityRules, postsEnabled: _postsEnabled, refundDeadlineDays: _refundDeadlineDays,
+      communityRules: _communityRules, postsEnabled: _postsEnabled, faqEnabled: _faqEnabled, refundDeadlineDays: _refundDeadlineDays,
       selectedStrategyId: _selectedStrategyId, strategies: _strategies,
       selectedVenueId: _selectedVenueId, venues: _venues,
       hasSchedule: _hasSchedule, scheduleDays: _scheduleDays,
@@ -389,7 +391,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         maxCapacity: capVal, registrationType: _registrationType,
         minPledge: double.tryParse(_minPledgeCtrl.text) ?? 5.0,
         maxReservedSpotsPerUser: int.tryParse(_maxReservedSpotsCtrl.text) ?? 0,
-        genre: _genre, communityRules: _communityRules, postsEnabled: _postsEnabled, publish: _publish,
+        genre: _genre, communityRules: _communityRules, postsEnabled: _postsEnabled, faqEnabled: _faqEnabled, publish: _publish,
         startTime: _startTime, endTime: _endTime, fundingEndAt: _fundingEndAt,
         refundDeadlineDays: _refundDeadlineDays, fundingGoal: double.tryParse(_fundingGoalCtrl.text),
         selectedStrategyId: _selectedStrategyId, venues: _venues,
@@ -404,6 +406,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         maxCoOrganizers: int.tryParse(_maxCoOrganizersCtrl.text.trim()),
         reservedSpotsReleasePercent: int.tryParse(_reservedSpotsReleasePercentCtrl.text.trim()),
         releaseTierSpotLimits: _releaseTierSpotLimits,
+        isPrivate: _isPrivate,
       );
       await executeCreateEventSubmission(
         sponsorRepo: context.read<SponsorProvider>(), eventRepo: context.read<EventProvider>(),
@@ -468,13 +471,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     onClearStartTime: () => setState(() => _startTime = null),
     onClearEndTime: () => setState(() => _endTime = null),
     registrationType: _registrationType,
-    onRegistrationTypeChanged: (v) => setState(() => _registrationType = v ?? 'open'),
+    onRegistrationTypeChanged: (v) => setState(() {
+      _registrationType = v ?? 'open';
+      if (_registrationType != 'closed') _isPrivate = false;
+    }),
     fundingEndAt: _fundingEndAt, onPickFundingDeadline: _pickFundingDeadline,
     onClearFundingDeadline: () => setState(() => _fundingEndAt = null),
     refundDeadlineDays: _refundDeadlineDays,
     onRefundDeadlineDaysChanged: (v) => setState(() => _refundDeadlineDays = v),
     milestones: _milestones, hasSchedule: _hasSchedule,
     onHasScheduleChanged: (v) => setState(() => _hasSchedule = v),
+    isPrivate: _isPrivate,
+    onIsPrivateChanged: (v) => setState(() => _isPrivate = v),
     scheduleDays: _scheduleDays, onMarkDirty: () => setState(() {}), fmtDt: fmtDt,
   );
 
@@ -537,6 +545,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     communityRules: _communityRules, communityRulesFeatureEnabled: _communityRulesFeatureEnabled,
     onCommunityRulesChanged: (v) => setState(() => _communityRules = v),
     postsEnabled: _postsEnabled, onPostsEnabledChanged: (v) => setState(() => _postsEnabled = v),
+    faqEnabled: _faqEnabled, onFaqEnabledChanged: (v) => setState(() => _faqEnabled = v),
     localCategories: _localCategories, sponsorTemplates: _sponsorTemplates,
     templatesLoading: _loadingTemplates, onToggleSponsorTemplate: _toggleSponsorTemplate,
     onAddSponsorCategory: () { final c = EditableSponsorCategory(expanded: true); c.spotsCtrl.text = '1'; c.minBidCtrl.text = '100.00';

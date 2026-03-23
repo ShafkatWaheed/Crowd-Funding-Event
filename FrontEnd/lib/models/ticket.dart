@@ -163,7 +163,8 @@ class TicketSale {
   final String? tierName;
   final String? eventTitle;
   final String? eventStatus;
-  final String? attendeeDisplayName;
+  final String? attendeeDisplayName;  // buyer's profile name (unchanged)
+  final String? attendeeName;         // user-entered attendee name (for gifted/transferred tickets)
   final String? scannedByDisplayName;
   final int amountPaidCents;
   final int discountAppliedCents;
@@ -187,6 +188,7 @@ class TicketSale {
     this.eventTitle,
     this.eventStatus,
     this.attendeeDisplayName,
+    this.attendeeName,
     this.scannedByDisplayName,
     required this.amountPaidCents,
     required this.discountAppliedCents,
@@ -212,6 +214,7 @@ class TicketSale {
       eventTitle: json['event_title'] as String?,
       eventStatus: json['event_status'] as String?,
       attendeeDisplayName: json['attendee_display_name'] as String?,
+      attendeeName: json['attendee_name'] as String?,
       scannedByDisplayName: json['scanned_by_display_name'] as String?,
       amountPaidCents: (json['amount_paid_cents'] as num?)?.toInt() ?? 0,
       discountAppliedCents: json['discount_applied_cents'] ?? 0,
@@ -239,6 +242,7 @@ class TicketSale {
         if (eventTitle != null) 'event_title': eventTitle,
         if (eventStatus != null) 'event_status': eventStatus,
         if (attendeeDisplayName != null) 'attendee_display_name': attendeeDisplayName,
+        if (attendeeName != null) 'attendee_name': attendeeName,
         if (scannedByDisplayName != null) 'scanned_by_display_name': scannedByDisplayName,
         'amount_paid_cents': amountPaidCents,
         'discount_applied_cents': discountAppliedCents,
@@ -345,4 +349,12 @@ class TicketScanResult {
       ticket: TicketSale.fromJson(json['ticket'] as Map<String, dynamic>),
     );
   }
+}
+
+class SetAttendeeNameRequest {
+  final String name;
+
+  const SetAttendeeNameRequest({required this.name});
+
+  Map<String, dynamic> toJson() => {'name': name};
 }

@@ -494,3 +494,23 @@ async def scan_ticket(
         )
     sale = await ticket_repo.reload_with_scanned_by(db, sale.id)
     return sale, already_scanned
+
+
+async def set_attendee_name(
+    db: AsyncSession,
+    *,
+    sale_id: int,
+    user_id: int,
+    event_id: int,
+    name: str,
+) -> TicketSale:
+    """Set a custom attendee name on a ticket (ticket holder or event organizer only)."""
+    sale = await ticket_repo.get_sale_for_event(db, sale_id, event_id)
+    if not sale:
+        raise NotFoundError("Ticket", "not found for this event")
+    if sale.user_id != user_id:
+        event = await event_service.get_or_404(db, event_id)
+        if event.organizer_id != user_id:
+            raise ForbiddenError("Only the ticket holder or event organizer can set the attendee name")
+    stripped = name.strip()
+    return await ticket_repo.set_attendee_name(db, sale_id, stripped or None)

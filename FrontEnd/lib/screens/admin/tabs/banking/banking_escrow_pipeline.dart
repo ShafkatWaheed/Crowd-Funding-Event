@@ -131,7 +131,7 @@ class BankingEscrowPipelineSection extends StatelessWidget {
       case 'fully_released': return AppTheme.successColor.withValues(alpha:0.2);
       case 'partially_released': return AppTheme.warningColor.withValues(alpha:0.2);
       case 'frozen': return AppTheme.errorColor.withValues(alpha:0.2);
-      case 'refunded': return Colors.purple.withValues(alpha:0.2);
+      case 'refunded': return AppTheme.purpleColor.withValues(alpha:0.2);
       default: return AppTheme.accentColor.withValues(alpha:0.15);
     }
   }

@@ -291,14 +291,14 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                     _statChip(
                       '\$${(_totalRevenue / 100).toStringAsFixed(2)}',
                       Icons.attach_money_rounded,
-                      Colors.teal,
+                      AppTheme.tealColor,
                     ),
                     const SizedBox(width: 8),
                     if (_totalCommission > 0)
                       _statChip(
                         'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
                         Icons.account_balance_wallet_rounded,
-                        Colors.deepPurple,
+                        AppTheme.purpleColor,
                       ),
                     if (_searchCtrl.text.isNotEmpty) ...[
                       const SizedBox(width: 8),
@@ -669,7 +669,7 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.storefront_rounded, color: Colors.white70, size: 18),
+                Icon(Icons.storefront_rounded, color: Colors.white.withValues(alpha: 0.7), size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(

@@ -77,6 +77,7 @@ class TicketSale(Base):
     gateway_refund_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     extra_perks: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[TicketSaleStatus] = mapped_column(Enum(TicketSaleStatus), nullable=False, default=TicketSaleStatus.purchased, index=True)
+    attendee_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scanned_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

@@ -73,6 +73,7 @@ class Event(Base):
     genre: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     community_rules: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     posts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    faq_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     refund_deadline_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # only set when funding is used; default 20% of funding duration
     event_date_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # deadline to set event date (funding_end + 20% duration)
     ticket_strategy_id: Mapped[int | None] = mapped_column(ForeignKey("ticket_strategies.id"), nullable=True, index=True)
@@ -102,6 +103,8 @@ class Event(Base):
     refund_deadline_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reserved_spots_release_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     release_tier_spot_limits: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    share_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True, unique=True)
     # Admin per-event overrides
     admin_override_waitlist_max_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     admin_override_event_max_images: Mapped[int | None] = mapped_column(Integer, nullable=True)

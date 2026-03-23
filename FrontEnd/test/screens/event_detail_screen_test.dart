@@ -20,6 +20,7 @@ import 'package:crowd_funding_app/repositories/funding_repository.dart';
 import 'package:crowd_funding_app/providers/ticket_provider.dart';
 import 'package:crowd_funding_app/providers/pledge_provider.dart';
 import 'package:crowd_funding_app/providers/config_provider.dart';
+import 'package:crowd_funding_app/providers/poll_provider.dart';
 import 'package:crowd_funding_app/repositories/payment_repository.dart';
 import 'package:crowd_funding_app/services/sync_service.dart';
 import 'package:crowd_funding_app/screens/event/event_detail_screen.dart';
@@ -44,6 +45,7 @@ void main() {
   late MockEventRepository mockEventRepo;
   late MockTicketRepository mockTicketRepo;
   late MockFundingRepository mockFundingRepo;
+  late MockPollProvider mockPoll;
 
   setUp(() {
     mockAuth = MockAuthProvider();
@@ -51,6 +53,13 @@ void main() {
     mockConfig = MockConfigProvider();
     mockPaymentRepo = MockPaymentRepository();
     mockSync = MockSyncService();
+    mockPoll = MockPollProvider();
+    when(() => mockPoll.activePoll).thenReturn(null);
+    when(() => mockPoll.loading).thenReturn(false);
+    when(() => mockPoll.startPolling(any())).thenReturn(null);
+    when(() => mockPoll.stopPolling()).thenReturn(null);
+    when(() => mockPoll.addListener(any())).thenReturn(null);
+    when(() => mockPoll.removeListener(any())).thenReturn(null);
 
     // ConfigProvider stubs
     when(() => mockConfig.stripeEnabled).thenReturn(false);
@@ -74,7 +83,9 @@ void main() {
     when(() => mockEvent.hasMore).thenReturn(false);
     when(() => mockEvent.error).thenReturn(null);
     when(() => mockEvent.selectedEvent).thenReturn(null);
-    when(() => mockEvent.loadEvent(any(), forceRefresh: any(named: 'forceRefresh')))
+    when(() => mockEvent.loadEvent(any(),
+            forceRefresh: any(named: 'forceRefresh'),
+            shareToken: any(named: 'shareToken')))
         .thenAnswer((_) async {});
     when(() => mockEvent.getSchedule(any())).thenAnswer((_) async => []);
     when(() => mockEvent.getMilestones(any())).thenAnswer((_) async => []);
@@ -136,6 +147,7 @@ void main() {
         Provider<SyncService>.value(value: mockSync),
         ChangeNotifierProvider<TicketProvider>.value(value: TicketProvider(mockTicketRepo)),
         ChangeNotifierProvider<PledgeProvider>.value(value: PledgeProvider(mockFundingRepo)),
+        ChangeNotifierProvider<PollProvider>.value(value: mockPoll),
       ];
 
   group('EventDetailScreen', () {

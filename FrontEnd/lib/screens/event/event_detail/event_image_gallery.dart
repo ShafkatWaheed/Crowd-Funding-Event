@@ -212,7 +212,7 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             right: 0,
                             child: Container(
                               padding: const EdgeInsets.all(6),
-                              color: Colors.black54,
+                              color: Colors.black.withValues(alpha: 0.54),
                               child: Text(
                                 img.caption!,
                                 style: const TextStyle(
@@ -235,8 +235,8 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.54),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.close,

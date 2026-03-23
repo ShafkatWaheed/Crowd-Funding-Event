@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/theme.dart';
+
 import '../../../models/event_form_models.dart';
 import '../../../models/sponsor.dart';
 import '../../../models/ticket.dart';
@@ -249,7 +251,7 @@ Future<bool> confirmDiscardDialog(BuildContext context) async {
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Editing')),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
           child: const Text('Discard'),
         ),
       ],

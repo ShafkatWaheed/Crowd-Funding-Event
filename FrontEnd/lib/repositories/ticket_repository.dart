@@ -229,6 +229,14 @@ class TicketRepository extends BaseRepository {
     return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
   }
 
+  Future<TicketSale> setAttendeeName(int eventId, int saleId, SetAttendeeNameRequest req) async {
+    final r = await dio.patch(
+      '/events/$eventId/tickets/$saleId/attendee-name',
+      data: req.toJson(),
+    );
+    return TicketSale.fromJson(Map<String, dynamic>.from(r.data as Map));
+  }
+
   // ─── Waitlist ───
 
   Future<List<TicketSale>> getWaitlistedTickets(int eventId) async {

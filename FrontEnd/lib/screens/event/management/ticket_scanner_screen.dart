@@ -136,7 +136,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
       if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Download failed — check your connection'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         ));
       }
     } finally {
@@ -233,6 +233,8 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
             : 'Entry confirmed',
         receiptNumber: ticketReceiptNum,
         alreadyScanned: alreadyScanned,
+        buyerName: ticket.attendeeDisplayName,
+        attendeeName: ticket.attendeeName,
       );
     }
   }
@@ -377,6 +379,8 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
     required String subtitle,
     String? receiptNumber,
     bool alreadyScanned = false,
+    String? buyerName,
+    String? attendeeName,
   }) {
     final color = success
         ? AppTheme.successColor
@@ -440,6 +444,14 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
               ),
               textAlign: TextAlign.center,
             ),
+            if (buyerName != null && buyerName.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ScanNameRow(label: 'Bought by', name: buyerName, ctx: themeCtx),
+            ],
+            if (attendeeName != null && attendeeName.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _ScanNameRow(label: 'Attendee', name: attendeeName, ctx: themeCtx),
+            ],
             if (receiptNumber != null && receiptNumber.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -780,7 +792,7 @@ class _TicketScannerScreenState extends State<TicketScannerScreen> {
                       height: 40,
                       decoration: BoxDecoration(
                         color: _offlineTicketCount > 0
-                            ? Colors.green.withValues(alpha: 0.75)
+                            ? AppTheme.successColor.withValues(alpha: 0.75)
                             : Colors.black.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                       ),
@@ -1359,6 +1371,43 @@ class _DelegateRow extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+/// Label + value row used in the scan result sheet for buyer/attendee names.
+class _ScanNameRow extends StatelessWidget {
+  final String label;
+  final String name;
+  final BuildContext ctx;
+  const _ScanNameRow({required this.label, required this.name, required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 76,
+          child: Text(
+            '$label:',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryOf(ctx),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

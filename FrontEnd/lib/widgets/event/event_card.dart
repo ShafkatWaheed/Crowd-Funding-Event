@@ -154,50 +154,50 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          event.title,
-                          style: AppTypography.titleLarge.copyWith(
-                            color: Colors.white,
-                            letterSpacing: -0.3,
-                            height: 1.25,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        child: Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            _FrostedStatusBadge(status: event.status, hasFunding: event.isFunding),
+                            if (event.isPrivate)
+                              Icon(Icons.lock_outline, size: 14, color: Colors.white.withValues(alpha: 0.7)),
+                            if (event.ageRestricted)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorColor.withValues(alpha: 0.7),
+                                  borderRadius: AppRadius.pill,
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                                ),
+                                child: Text(
+                                  '${event.minAge}+',
+                                  style: AppTypography.labelSmall.copyWith(
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      AppSpacing.hSm,
-                      _FrostedStatusBadge(status: event.status, hasFunding: event.isFunding),
-                      if (event.isPrivate) ...[
-                        AppSpacing.hXs,
-                        Icon(Icons.lock_outline, size: 14, color: Colors.white.withValues(alpha: 0.7)),
-                      ],
-                      if (event.ageRestricted) ...[
-                        AppSpacing.hXs,
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                          decoration: BoxDecoration(
-                            color: AppTheme.errorColor.withValues(alpha: 0.7),
-                            borderRadius: AppRadius.pill,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                          ),
-                          child: Text(
-                            '${event.minAge}+',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (widget.onBookmarkToggle != null) ...[
-                        AppSpacing.hXs,
+                      if (widget.onBookmarkToggle != null)
                         _BookmarkButton(
                           isBookmarked: widget.isBookmarked,
                           onTap: widget.onBookmarkToggle!,
                         ),
-                      ],
                     ],
+                  ),
+                  AppSpacing.vXs,
+                  Text(
+                    event.title,
+                    style: AppTypography.titleLarge.copyWith(
+                      color: Colors.white,
+                      letterSpacing: -0.3,
+                      height: 1.25,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

@@ -683,35 +683,69 @@ class _ExploreTabState extends State<ExploreTab> {
                 horizontal: AppSpacing.lg,
                 vertical: AppSpacing.xs,
               ),
-              sliver: SliverGrid(
-                gridDelegate:
-                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 340,
-                  mainAxisExtent: 330,
-                  crossAxisSpacing: AppSpacing.md,
-                  mainAxisSpacing: AppSpacing.md,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final event = events.events[index];
-                    return AnimatedListItem(
-                      index: index,
-                      child: EventCard(
-                        event: event,
-                        imageUrl: event.firstImageUrl,
-                        onTap: () => context.push('/events/${event.id}'),
-                        isBookmarked: widget.bookmarkedIds.contains(event.id),
-                        onBookmarkToggle: () =>
-                            widget.onToggleBookmark(event.id),
-                        isOrganizerOrAdmin: user != null &&
-                            (user.isOrganizer || user.isAdmin),
-                        myPledgeAmountCents: event.viewerPledgeAmountCents,
-                        myTicketCount: event.viewerTicketCount,
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.crossAxisExtent;
+                  // On narrow screens, use a list layout so the title has room
+                  if (width < 400) {
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final event = events.events[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            child: AnimatedListItem(
+                              index: index,
+                              child: EventCard(
+                                event: event,
+                                imageUrl: event.firstImageUrl,
+                                onTap: () => context.push('/events/${event.id}'),
+                                isBookmarked: widget.bookmarkedIds.contains(event.id),
+                                onBookmarkToggle: () =>
+                                    widget.onToggleBookmark(event.id),
+                                isOrganizerOrAdmin: user != null &&
+                                    (user.isOrganizer || user.isAdmin),
+                                myPledgeAmountCents: event.viewerPledgeAmountCents,
+                                myTicketCount: event.viewerTicketCount,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: events.events.length,
                       ),
                     );
-                  },
-                  childCount: events.events.length,
-                ),
+                  }
+                  return SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 340,
+                      mainAxisExtent: 330,
+                      crossAxisSpacing: AppSpacing.md,
+                      mainAxisSpacing: AppSpacing.md,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final event = events.events[index];
+                        return AnimatedListItem(
+                          index: index,
+                          child: EventCard(
+                            event: event,
+                            imageUrl: event.firstImageUrl,
+                            onTap: () => context.push('/events/${event.id}'),
+                            isBookmarked: widget.bookmarkedIds.contains(event.id),
+                            onBookmarkToggle: () =>
+                                widget.onToggleBookmark(event.id),
+                            isOrganizerOrAdmin: user != null &&
+                                (user.isOrganizer || user.isAdmin),
+                            myPledgeAmountCents: event.viewerPledgeAmountCents,
+                            myTicketCount: event.viewerTicketCount,
+                          ),
+                        );
+                      },
+                      childCount: events.events.length,
+                    ),
+                  );
+                },
               ),
             ),
           if (events.isLoadingMore)

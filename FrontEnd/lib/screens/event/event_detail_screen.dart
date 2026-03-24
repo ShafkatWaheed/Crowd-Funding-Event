@@ -1139,14 +1139,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   Widget _buildStatsRow(BuildContext context, Event event, bool isDark) {
     final items = <({String val, String lbl})>[];
 
-    if (event.registrationCount > 0 && !event.isFunding &&
-        event.status != EventStatus.waiting_event_date &&
-        event.status != EventStatus.selling_tickets &&
-        event.status != EventStatus.live) {
-      items.add((val: '${event.registrationCount}', lbl: 'Joined'));
-    }
-
-
     if (event.totalReservedSpots > 0 && !event.isFunding &&
         event.status != EventStatus.waiting_event_date) {
       items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));

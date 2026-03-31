@@ -734,12 +734,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Stats row ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: _buildStatsRow(context, event, isDark),
-        ),
-
         // ── Content sections ──
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
@@ -1135,65 +1129,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  // ── Stats row: registered count / funding days / capacity ──
-  Widget _buildStatsRow(BuildContext context, Event event, bool isDark) {
-    final items = <({String val, String lbl})>[];
-
-    if (event.totalReservedSpots > 0 && !event.isFunding &&
-        event.status != EventStatus.waiting_event_date) {
-      items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));
-    }
-
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.cardOf(context),
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppTheme.dividerOf(context)),
-      ),
-      child: Row(
-        children: List.generate(items.length, (i) {
-          final item = items[i];
-          return Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              decoration: BoxDecoration(
-                border: i < items.length - 1
-                    ? Border(
-                        right: BorderSide(color: AppTheme.dividerOf(context)),
-                      )
-                    : null,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    item.val,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.textPrimaryOf(context),
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.lbl.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.07 * 9,
-                      color: AppTheme.textSecondaryOf(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 
   void _showOrganizerBottomSheet(Event event) {
     final name = event.organizerName ?? 'Organizer';

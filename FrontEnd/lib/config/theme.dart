@@ -69,6 +69,13 @@ class AppTheme {
     colors: [Color(0xFF9333EA), Color(0xFFC026D3)],
   );
 
+  /// Purple funding CTA gradient (deep → mid → vivid purple).
+  static const LinearGradient purpleGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [purpleColor, purpleColor, purpleColor],
+  );
+
   // ─── Tinted surface colours (light mode) ───
   static const Color accentSurface  = Color(0xFFF0F4FF);  // blue tint
   static const Color successSurface = Color(0xFFECFDF3);   // green tint

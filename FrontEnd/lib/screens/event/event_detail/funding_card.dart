@@ -844,11 +844,9 @@ class _FundingCardState extends State<FundingCard> {
     // index of first not-yet-unlocked milestone
     final nextIdx = sorted.indexWhere((m) => progressPct < m.unlockPercent);
 
-    final accentColor = const Color(0xFF8B5CF6);
-    final bgColor = isDark ? const Color(0xFF0E0B1C) : const Color(0xFFF5F3FF);
-    final cardBorder = isDark
-        ? const Color(0xFF7C3AED).withValues(alpha: 0.25)
-        : const Color(0xFF8B5CF6).withValues(alpha: 0.3);
+    final accentColor = AppTheme.purpleColor;
+    final bgColor = AppTheme.purpleSurfaceOf(context);
+    final cardBorder = AppTheme.purpleColor.withValues(alpha: isDark ? 0.25 : 0.3);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -861,7 +859,7 @@ class _FundingCardState extends State<FundingCard> {
             border: Border.all(color: cardBorder),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6D28D9).withValues(alpha: isDark ? 0.28 : 0.12),
+                color: AppTheme.purpleColor.withValues(alpha: isDark ? 0.28 : 0.12),
                 blurRadius: 28,
                 offset: const Offset(0, 6),
               ),
@@ -877,7 +875,7 @@ class _FundingCardState extends State<FundingCard> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(colors: [
-                      const Color(0xFF6D28D9).withValues(alpha: isDark ? 0.15 : 0.08),
+                      AppTheme.purpleColor.withValues(alpha: isDark ? 0.15 : 0.08),
                       Colors.transparent,
                     ]),
                   ),
@@ -942,7 +940,7 @@ class _FundingCardState extends State<FundingCard> {
                           style: TextStyle(
                             fontSize: 38, fontWeight: FontWeight.w800,
                             letterSpacing: -1.5, height: 1,
-                            color: isDark ? const Color(0xFFF5F3FF) : const Color(0xFF1C1C1E),
+                            color: AppTheme.textPrimaryOf(context),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -964,11 +962,11 @@ class _FundingCardState extends State<FundingCard> {
                     FundingShimmerBar(
                       progress: _progress,
                       active: event.fundingHasTimeLeft,
-                      fillColors: const [Color(0xFF5B21B6), Color(0xFF7C3AED), Color(0xFF8B5CF6)],
+                      fillColors: [AppTheme.purpleColor.withValues(alpha: 0.85), AppTheme.purpleColor, AppTheme.purpleColor],
                       trackColor: isDark
                           ? Colors.white.withValues(alpha: 0.06)
                           : Colors.black.withValues(alpha: 0.06),
-                      glowColor: const Color(0xFF8B5CF6),
+                      glowColor: AppTheme.purpleColor,
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -1008,19 +1006,19 @@ class _FundingCardState extends State<FundingCard> {
                           Expanded(child: FundingStatCell(
                             value: '$_fundingCommissionPercent%',
                             label: 'Platform fee',
-                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            valueColor: AppTheme.textPrimaryOf(context),
                           )),
                           Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
                           Expanded(child: FundingStatCell(
                             value: '$_backersCount',
                             label: 'Backers',
-                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            valueColor: AppTheme.textPrimaryOf(context),
                           )),
                           Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
                           Expanded(child: FundingStatCell(
                             value: _avgPledgeFormatted,
                             label: 'Avg pledge',
-                            valueColor: isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            valueColor: AppTheme.textPrimaryOf(context),
                           )),
                         ],
                       ),
@@ -1102,12 +1100,11 @@ class _FundingCardState extends State<FundingCard> {
                             child: Container(
                               height: 48,
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                    colors: [Color(0xFF5B21B6), Color(0xFF6D28D9), Color(0xFF7C3AED)]),
+                                gradient: AppTheme.purpleGradient,
                                 borderRadius: AppRadius.md,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF6D28D9).withValues(alpha: 0.38),
+                                    color: AppTheme.purpleColor.withValues(alpha: 0.38),
                                     blurRadius: 18, offset: const Offset(0, 5),
                                   ),
                                 ],
@@ -1316,7 +1313,7 @@ class _TimeLeftBadgeState extends State<_TimeLeftBadge> with SingleTickerProvide
   void dispose() { _ctrl.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFFFBBF24);
+    const color = AppTheme.warningColor;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -1380,7 +1377,7 @@ class _RegisterButton extends StatelessWidget {
         : Colors.black.withValues(alpha: registered ? 0.10 : 0.14);
     final textColor = registered
         ? AppTheme.textSecondaryOf(context)
-        : (isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E));
+        : AppTheme.textPrimaryOf(context);
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: Container(

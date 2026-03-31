@@ -277,11 +277,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   LinearGradient _statusGradient(EventStatus _) {
-    return const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF1B1B2F), Color(0xFF162447)],
-    );
+    return AppTheme.darkGradient;
   }
 }
 

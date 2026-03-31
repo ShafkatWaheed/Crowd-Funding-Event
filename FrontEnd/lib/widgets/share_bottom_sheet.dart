@@ -20,6 +20,13 @@ import '../utils/share_utils.dart';
 import '../widgets/app_bottom_sheet.dart';
 import '../widgets/app_toast.dart';
 
+// Brand / third-party colours used only in this file's export card.
+class _BrandColors {
+  _BrandColors._();
+  /// Dark navy background for the ticket export card.
+  static const Color ticketCardBg = Color(0xFF1A1A2E);
+}
+
 Future<void> showShareSheet(BuildContext context, Event event) {
   return showAppBottomSheet(
     context: context,
@@ -348,7 +355,7 @@ class _TicketExportCard extends StatelessWidget {
         width: 340,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: _BrandColors.ticketCardBg,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

@@ -185,12 +185,8 @@ class _EventBottomStripState extends State<EventBottomStrip> {
                   child: _StripButton(
                     icon: Icons.volunteer_activism_rounded,
                     label: 'Pledge',
-                    // Amber gradient — matches combined_design.html #FF8C00 → #FFC043
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFFF8C00), Color(0xFFFFC043)],
-                    ),
+                    // Amber gradient — matches combined_design.html
+                    gradient: AppTheme.pledgeGradient,
                     height: 54,
                     onTap: widget.onPledgeTap,
                   ),
@@ -233,8 +229,8 @@ class _EventBottomStripState extends State<EventBottomStrip> {
       return _StripButton(
         icon: Icons.hourglass_top_rounded,
         label: 'Waiting Approval',
-        solidColor: const Color(0xFFFFC043),
-        labelColor: const Color(0xFF5C3000),
+        solidColor: AppTheme.warningColor,
+        labelColor: const Color(0xFF5C3000), // brown-on-warning — no theme token
         height: 54,
         onTap: null,
       );

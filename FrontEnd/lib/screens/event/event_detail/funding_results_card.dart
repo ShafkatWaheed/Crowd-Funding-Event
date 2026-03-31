@@ -221,7 +221,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1.5,
                         height: 1,
-                        color: isDark ? const Color(0xFFF0FDF4) : const Color(0xFF1C1C1E),
+                        color: isDark ? const Color(0xFFF0FDF4) : AppTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -292,7 +292,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                         value: '$_backersCount',
                         label: 'Backers',
                         valueColor:
-                            isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            AppTheme.textPrimaryOf(context),
                       )),
                       Container(
                           width: 0.5,
@@ -305,7 +305,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                         value: _avgPledge,
                         label: 'Avg pledge',
                         valueColor:
-                            isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            AppTheme.textPrimaryOf(context),
                       )),
                       Container(
                           width: 0.5,
@@ -320,7 +320,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                             : '—',
                         label: 'Fee',
                         valueColor:
-                            isDark ? const Color(0xFFE4E4F0) : const Color(0xFF1C1C1E),
+                            AppTheme.textPrimaryOf(context),
                       )),
                     ],
                   ),

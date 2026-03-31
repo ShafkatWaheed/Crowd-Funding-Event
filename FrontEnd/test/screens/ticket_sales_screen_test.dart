@@ -282,8 +282,8 @@ void main() {
       await pumpSales(tester);
       await tester.pumpAndSettle();
 
-      // Total revenue: $50.00 + $30.00 = $80.00
-      expect(find.text('\$80.00'), findsOneWidget);
+      // Total revenue: $50.00 + $30.00 = $80.00 (shown in summary text)
+      expect(find.textContaining('\$80.00'), findsOneWidget);
     });
   });
 

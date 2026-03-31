@@ -346,14 +346,14 @@ class _StepDiscountsMilestonesState extends State<StepDiscountsMilestones> {
               ),
               const SizedBox(width: 6),
               CreateDiscountBtn(
-                label: 'Add + Apply',
+                label: 'Apply to Event',
                 color: AppTheme.successColor,
                 onTap: () =>
                     widget.onAddDiscount(d.id, true),
               ),
               const SizedBox(width: 6),
               CreateDiscountBtn(
-                label: 'Add',
+                label: 'Save for Later',
                 color: context.sponsorAccent,
                 onTap: () =>
                     widget.onAddDiscount(d.id, false),

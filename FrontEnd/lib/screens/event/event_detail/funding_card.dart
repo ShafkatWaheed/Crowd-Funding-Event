@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/app_typography.dart';
 import '../../../config/theme.dart';
 import '../../../config/design_tokens.dart';
 import '../../../models/discount.dart';
@@ -55,6 +56,7 @@ class _FundingCardState extends State<FundingCard> {
   List<FundingMilestone> _milestones = [];
   bool _refundProcessing = false;
   Timer? _refundPollTimer;
+  bool _showDetails = false;
 
   Event get event => widget.event;
 
@@ -992,40 +994,61 @@ class _FundingCardState extends State<FundingCard> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Stats strip ──
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
-                          bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                    // ── Expandable details (stats, early bird, milestones) ──
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => _showDetails = !_showDetails),
+                        icon: Icon(
+                          _showDetails ? Icons.expand_less : Icons.expand_more,
+                          size: AppIconSize.sm,
+                        ),
+                        label: Text(
+                          _showDetails ? 'Hide details' : 'Show details',
+                          style: AppTypography.caption.copyWith(
+                            color: AppTheme.textSecondaryOf(context),
+                          ),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Row(
-                        children: [
-                          Expanded(child: FundingStatCell(
-                            value: '$_fundingCommissionPercent%',
-                            label: 'Platform fee',
-                            valueColor: AppTheme.textPrimaryOf(context),
-                          )),
-                          Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
-                          Expanded(child: FundingStatCell(
-                            value: '$_backersCount',
-                            label: 'Backers',
-                            valueColor: AppTheme.textPrimaryOf(context),
-                          )),
-                          Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
-                          Expanded(child: FundingStatCell(
-                            value: _avgPledgeFormatted,
-                            label: 'Avg pledge',
-                            valueColor: AppTheme.textPrimaryOf(context),
-                          )),
-                        ],
-                      ),
                     ),
-                    const SizedBox(height: 16),
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Stats strip ──
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                                bottom: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Row(
+                              children: [
+                                Expanded(child: FundingStatCell(
+                                  value: '$_fundingCommissionPercent%',
+                                  label: 'Platform fee',
+                                  valueColor: AppTheme.textPrimaryOf(context),
+                                )),
+                                Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                                Expanded(child: FundingStatCell(
+                                  value: '$_backersCount',
+                                  label: 'Backers',
+                                  valueColor: AppTheme.textPrimaryOf(context),
+                                )),
+                                Container(width: 0.5, height: 32, color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                                Expanded(child: FundingStatCell(
+                                  value: _avgPledgeFormatted,
+                                  label: 'Avg pledge',
+                                  valueColor: AppTheme.textPrimaryOf(context),
+                                )),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
 
-                    // ── Early bird banners ──
+                          // ── Early bird banners ──
                     ..._earlyBirdDiscounts.where((eb) => eb.isActive).map((eb) {
                       final value = eb.value;
                       final windowEnd = eb.endsAt != null ? DateTime.tryParse(eb.endsAt!) : null;
@@ -1072,6 +1095,13 @@ class _FundingCardState extends State<FundingCard> {
                         ),
                       );
                     }),
+                        ],
+                      ),
+                      crossFadeState: _showDetails
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      duration: AppDuration.normal,
+                    ),
 
                     // ── Pledge CTA + Register ──
                     if (canPledge) ...[
@@ -1169,8 +1199,8 @@ class _FundingCardState extends State<FundingCard> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ── Milestones ──
-                    if (sorted.isNotEmpty) ...[
+                    // ── Milestones (inside expandable) ──
+                    if (sorted.isNotEmpty && _showDetails) ...[
                       Container(
                         height: 0.5,
                         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_typography.dart';
+import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/funding.dart';
 import '../../utils/date_time_utils.dart';
@@ -32,8 +34,10 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
   bool _hasMore = true;
   String? _error;
   String _statusFilter = 'all';
+  bool _showMore = false;
 
-  static const _statuses = ['all', 'pledged', 'donation', 'refunded', 'collected'];
+  static const _primaryStatuses = ['all', 'pledged', 'refunded'];
+  static const _extraStatuses = ['donation', 'collected'];
 
   @override
   void initState() {
@@ -206,73 +210,137 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
             ),
           ),
 
-          // Status filter chips
+          // Primary status filter chips + "More" toggle
           SizedBox(
-            height: 40,
-            child: ListView.separated(
+            height: AppSpacing.chipRowHeight,
+            child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _statuses.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final s = _statuses[i];
-                final active = _statusFilter == s;
-                return AppChip(
-                  label: s[0].toUpperCase() + s.substring(1),
-                  selected: active,
-                  onSelected: (_) {
-                    setState(() => _statusFilter = s);
-                    _load();
-                  },
-                  chipColor: context.fundingAccent,
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 4),
-
-          // Summary chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               children: [
-                _chip(
-                  '${_all.length} backer${_all.length == 1 ? '' : 's'}',
-                  Icons.volunteer_activism_rounded,
-                  context.fundingAccent,
-                ),
-                const SizedBox(width: 8),
-                _chip(
-                  '\$${(_totalAmount / 100).toStringAsFixed(2)}',
-                  Icons.attach_money_rounded,
-                  AppTheme.tealColor,
-                ),
-                if (_totalNet > 0 && _totalNet != _totalAmount) ...[
-                  const SizedBox(width: 8),
-                  _chip(
-                    'Net \$${(_totalNet / 100).toStringAsFixed(2)}',
-                    Icons.account_balance_wallet_rounded,
-                    AppTheme.purpleColor,
+                for (final s in _primaryStatuses) ...[
+                  AppChip(
+                    label: s[0].toUpperCase() + s.substring(1),
+                    selected: _statusFilter == s,
+                    onSelected: (_) {
+                      setState(() => _statusFilter = s);
+                      _load();
+                    },
+                    chipColor: context.fundingAccent,
                   ),
+                  const SizedBox(width: AppSpacing.sm),
                 ],
-                if (_searchCtrl.text.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  _chip(
-                    '${filtered.length} match${filtered.length == 1 ? '' : 'es'}',
-                    Icons.filter_list_rounded,
-                    AppTheme.accentColor,
+                ActionChip(
+                  avatar: Icon(
+                    _showMore ? Icons.expand_less : Icons.expand_more,
+                    size: AppIconSize.sm,
+                    color: _showMore
+                        ? Colors.white
+                        : AppTheme.textSecondaryOf(context),
                   ),
-                ],
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _load,
-                  tooltip: 'Refresh',
+                  label: const Text('More'),
+                  labelStyle: AppTypography.chip.copyWith(
+                    color: _showMore
+                        ? Colors.white
+                        : AppTheme.textSecondaryOf(context),
+                  ),
+                  backgroundColor:
+                      _showMore ? AppTheme.accentColor : Colors.transparent,
+                  side: BorderSide(
+                    color: _showMore
+                        ? AppTheme.accentColor
+                        : AppTheme.dividerOf(context),
+                  ),
+                  shape: const StadiumBorder(),
+                  onPressed: () => setState(() => _showMore = !_showMore),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
+
+          // Expandable section: extra filters + stat chips
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                // Extra status filter chips
+                SizedBox(
+                  height: AppSpacing.chipRowHeight,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                    children: [
+                      for (var i = 0; i < _extraStatuses.length; i++) ...[
+                        AppChip(
+                          label: _extraStatuses[i][0].toUpperCase() +
+                              _extraStatuses[i].substring(1),
+                          selected: _statusFilter == _extraStatuses[i],
+                          onSelected: (_) {
+                            setState(() => _statusFilter = _extraStatuses[i]);
+                            _load();
+                          },
+                          chipColor: context.fundingAccent,
+                        ),
+                        if (i < _extraStatuses.length - 1)
+                          const SizedBox(width: AppSpacing.sm),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+
+                // Summary stat chips + refresh
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      _chip(
+                        '${_all.length} backer${_all.length == 1 ? '' : 's'}',
+                        Icons.volunteer_activism_rounded,
+                        context.fundingAccent,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      _chip(
+                        '\$${(_totalAmount / 100).toStringAsFixed(2)}',
+                        Icons.attach_money_rounded,
+                        AppTheme.tealColor,
+                      ),
+                      if (_totalNet > 0 && _totalNet != _totalAmount) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        _chip(
+                          'Net \$${(_totalNet / 100).toStringAsFixed(2)}',
+                          Icons.account_balance_wallet_rounded,
+                          AppTheme.purpleColor,
+                        ),
+                      ],
+                      if (_searchCtrl.text.isNotEmpty) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        _chip(
+                          '${filtered.length} match${filtered.length == 1 ? '' : 'es'}',
+                          Icons.filter_list_rounded,
+                          AppTheme.accentColor,
+                        ),
+                      ],
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: AppIconSize.md),
+                        onPressed: _load,
+                        tooltip: 'Refresh',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            crossFadeState: _showMore
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: AppDuration.normal,
+          ),
+          const SizedBox(height: AppSpacing.xs),
 
           Expanded(
             child: _loading

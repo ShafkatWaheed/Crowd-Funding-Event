@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_icons.dart';
+import '../../config/app_typography.dart';
 import '../../config/design_tokens.dart';
 import '../../utils/date_time_utils.dart';
 import '../../config/theme.dart';
@@ -45,6 +46,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   String _search = '';
   String _filterStatus = 'all';
   String _sortBy = 'newest';
+  bool _showFilters = false;
   bool _isOffline = false;
 
   @override
@@ -295,54 +297,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                   ),
                   AppSpacing.vMd,
 
-                  // Sort chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Builder(builder: (context) {
-                      final (sortBg, sortLabel) = AppTheme.chipActive(AppTheme.accentColor);
-                      return Row(
-                        children: [
-                          Icon(Icons.sort_rounded, size: 18,
-                              color: AppTheme.textSecondaryOf(context)),
-                          AppSpacing.hSm,
-                          ...<String, String>{
-                            'newest': 'Newest',
-                            'oldest': 'Oldest',
-                            'price_high': 'Price \u2191',
-                            'price_low': 'Price \u2193',
-                          }.entries.map((e) {
-                            final active = _sortBy == e.key;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: AppSpacing.sm),
-                              child: ChoiceChip(
-                                label: Text(e.value),
-                                selected: active,
-                                showCheckmark: false,
-                                onSelected: (_) {
-                                  setState(() => _sortBy = e.key);
-                                  _load();
-                                },
-                                backgroundColor: AppTheme.cardOf(context),
-                                color: WidgetStateProperty.resolveWith((s) =>
-                                    s.contains(WidgetState.selected) ? sortBg : AppTheme.cardOf(context)),
-                                side: BorderSide(
-                                  color: active ? sortBg : AppTheme.dividerOf(context),
-                                ),
-                                labelStyle: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: active ? sortLabel : AppTheme.textPrimaryOf(context),
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                      );
-                    }),
-                  ),
-                  AppSpacing.vMd,
-
-                  // Filter chips
+                  // Primary filter chips + Sort & Filter toggle
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -351,15 +306,113 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         AppSpacing.hSm,
                         _filterChip('Purchased', 'purchased'),
                         AppSpacing.hSm,
-                        _filterChip('Refund Pending', 'refund_pending'),
-                        AppSpacing.hSm,
-                        _filterChip('Waitlisted', 'waitlisted'),
-                        AppSpacing.hSm,
                         _filterChip('Refunded', 'refunded'),
                         AppSpacing.hSm,
-                        _filterChip('Cancelled', 'cancelled'),
+                        ActionChip(
+                          avatar: Icon(
+                            _showFilters
+                                ? Icons.expand_less_rounded
+                                : Icons.tune_rounded,
+                            size: AppIconSize.sm,
+                            color: _showFilters
+                                ? Colors.white
+                                : AppTheme.textSecondaryOf(context),
+                          ),
+                          label: Text(
+                            'Sort & Filter',
+                            style: AppTypography.chip.copyWith(
+                              color: _showFilters
+                                  ? Colors.white
+                                  : AppTheme.textPrimaryOf(context),
+                            ),
+                          ),
+                          backgroundColor: _showFilters
+                              ? AppTheme.accentColor
+                              : AppTheme.cardOf(context),
+                          side: BorderSide(
+                            color: _showFilters
+                                ? AppTheme.accentColor
+                                : AppTheme.dividerOf(context),
+                          ),
+                          onPressed: () =>
+                              setState(() => _showFilters = !_showFilters),
+                        ),
                       ],
                     ),
+                  ),
+
+                  // Expandable sort + extra filter chips
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSpacing.vMd,
+                        // Sort chips
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Builder(builder: (context) {
+                            final (sortBg, sortLabel) = AppTheme.chipActive(AppTheme.accentColor);
+                            return Row(
+                              children: [
+                                Icon(Icons.sort_rounded, size: 18,
+                                    color: AppTheme.textSecondaryOf(context)),
+                                AppSpacing.hSm,
+                                ...<String, String>{
+                                  'newest': 'Newest',
+                                  'oldest': 'Oldest',
+                                  'price_high': 'Price \u2191',
+                                  'price_low': 'Price \u2193',
+                                }.entries.map((e) {
+                                  final active = _sortBy == e.key;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: AppSpacing.sm),
+                                    child: ChoiceChip(
+                                      label: Text(e.value),
+                                      selected: active,
+                                      showCheckmark: false,
+                                      onSelected: (_) {
+                                        setState(() => _sortBy = e.key);
+                                        _load();
+                                      },
+                                      backgroundColor: AppTheme.cardOf(context),
+                                      color: WidgetStateProperty.resolveWith((s) =>
+                                          s.contains(WidgetState.selected) ? sortBg : AppTheme.cardOf(context)),
+                                      side: BorderSide(
+                                        color: active ? sortBg : AppTheme.dividerOf(context),
+                                      ),
+                                      labelStyle: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: active ? sortLabel : AppTheme.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            );
+                          }),
+                        ),
+                        AppSpacing.vSm,
+                        // Extra filter chips
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _filterChip('Refund Pending', 'refund_pending'),
+                              AppSpacing.hSm,
+                              _filterChip('Waitlisted', 'waitlisted'),
+                              AppSpacing.hSm,
+                              _filterChip('Cancelled', 'cancelled'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    crossFadeState: _showFilters
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: AppDuration.normal,
                   ),
                 ],
               ),

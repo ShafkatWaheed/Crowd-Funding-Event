@@ -12,7 +12,7 @@ import '../../../models/admin.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/admin_provider.dart';
 import '../../../widgets/admin/admin_action_card.dart';
-import '../../../widgets/admin/admin_kpi_card.dart';
+import '../../../widgets/admin/admin_stat_card.dart';
 import '../../../widgets/app_chip.dart';
 
 const double _wideBreakpoint = 900;
@@ -210,55 +210,55 @@ class _AdminHomeTabState extends State<AdminHomeTab> {
       spacing: 12,
       runSpacing: 12,
       children: [
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.paid,
           label: 'Total Revenue',
           value: centsToStr(kpis.totalRevenueCents),
           color: AppTheme.accentOf(context),
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.confirmation_number,
           label: 'Ticket Commission',
           value: centsToStr(kpis.ticketCommissionCents),
           color: context.sponsorAccent,
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.savings,
           label: 'Funding Commission',
           value: centsToStr(kpis.fundingCommissionCents),
           color: context.ticketAccent,
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.account_balance,
           label: 'Escrow Held',
           value: centsToStr(kpis.escrowHeldCents),
           color: context.fundingAccent,
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.local_activity,
           label: 'Tickets Sold',
           value: '${kpis.ticketsSold}',
           color: context.ticketAccent,
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.volunteer_activism,
           label: 'Pledges Made',
           value: '${kpis.pledgesMade}',
           color: context.fundingAccent,
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.event,
           label: 'Total Events',
           value: '${kpis.eventsTotal}',
           color: AppTheme.accentOf(context),
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.event_available,
           label: 'Live Events',
           value: '${kpis.eventsLive}',
           color: AppTheme.successOf(context),
         ),
-        AdminKpiCard(
+        AdminStatCard(horizontal: true,
           icon: Icons.people,
           label: 'Total Users',
           value: '${kpis.usersTotal}',

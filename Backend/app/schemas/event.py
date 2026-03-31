@@ -35,42 +35,42 @@ class EventVenueInfo(BaseModel):
 
 class EventCreate(BaseModel):
     venue_id: int
-    title: str
-    description: str | None = None
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=10_000)
     start_time: str | None = None  # ISO datetime — event date (optional if funding_end_at set)
     end_time: str | None = None
-    funding_goal_cents: int | None = None
+    funding_goal_cents: int | None = Field(None, ge=0)
     funding_end_at: str | None = None  # funding deadline (optional if start_time set)
-    min_pledge_cents: int = 500  # required minimum pledge amount in cents
+    min_pledge_cents: int = Field(500, ge=1)  # required minimum pledge amount in cents
     registration_type: Literal["open", "closed"] = "open"
-    max_capacity: int
-    max_reserved_spots_per_user: int = 0  # max ticket spots a pledger can reserve (0 = disabled)
-    common_discount_percent: int = 0
-    pledge_discount_percent: int = 0
+    max_capacity: int = Field(..., ge=1, le=1_000_000)
+    max_reserved_spots_per_user: int = Field(0, ge=0)  # max ticket spots a pledger can reserve (0 = disabled)
+    common_discount_percent: int = Field(0, ge=0, le=100)
+    pledge_discount_percent: int = Field(0, ge=0, le=100)
     genre: str | None = None
     community_rules: bool = False
     posts_enabled: bool = True
     faq_enabled: bool = False
-    refund_deadline_days: int | None = None  # auto-calculated as 20% of funding duration; only when funding set
+    refund_deadline_days: int | None = Field(None, ge=0)  # auto-calculated as 20% of funding duration; only when funding set
     ticket_strategy_id: int | None = None  # link to a reusable ticket strategy
     # Parking & Transport
-    parking_info: str | None = None
-    transit_info: str | None = None
-    rideshare_info: str | None = None
-    accessibility_info: str | None = None
+    parking_info: str | None = Field(None, max_length=2000)
+    transit_info: str | None = Field(None, max_length=2000)
+    rideshare_info: str | None = Field(None, max_length=2000)
+    accessibility_info: str | None = Field(None, max_length=2000)
     has_schedule: bool = False
     link_funding_to_tiers: bool = False
-    max_discount_percent: int = 100
+    max_discount_percent: int = Field(100, ge=0, le=100)
     age_restricted: bool = False
-    min_age: int = 18
+    min_age: int = Field(18, ge=0, le=120)
     # Per-event policy settings
-    waitlist_max_size: int | None = None
+    waitlist_max_size: int | None = Field(None, ge=1)
     waitlist_auto_approve: bool = True
-    event_max_images: int | None = None
-    max_posts_per_day: int | None = None
-    max_co_organizers: int | None = None
-    refund_deadline_percent: int | None = None
-    reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
+    event_max_images: int | None = Field(None, ge=1)
+    max_posts_per_day: int | None = Field(None, ge=1)
+    max_co_organizers: int | None = Field(None, ge=1)
+    refund_deadline_percent: int | None = Field(None, ge=0, le=100)
+    reserved_spots_release_percent: int | None = Field(None, ge=0, le=100)  # 0–100; 100 = release at live
     release_tier_spot_limits: bool = False  # if True, also zeroes tier.max_reserved_spots at release
     is_private: bool = False  # private events hidden from listings; accessible via share link only
     publish: bool = False  # True = approved immediately, False = draft
@@ -83,43 +83,43 @@ class EventCreate(BaseModel):
 
 
 class EventUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=10_000)
     start_time: str | None = None
     end_time: str | None = None
     venue_id: int | None = None
-    funding_goal_cents: int | None = None
+    funding_goal_cents: int | None = Field(None, ge=0)
     funding_end_at: str | None = None
-    min_pledge_cents: int | None = None
+    min_pledge_cents: int | None = Field(None, ge=1)
     registration_type: Literal["open", "closed"] | None = None
-    max_capacity: int | None = None
-    max_reserved_spots_per_user: int | None = None
-    common_discount_percent: int | None = None
-    pledge_discount_percent: int | None = None
+    max_capacity: int | None = Field(None, ge=1, le=1_000_000)
+    max_reserved_spots_per_user: int | None = Field(None, ge=0)
+    common_discount_percent: int | None = Field(None, ge=0, le=100)
+    pledge_discount_percent: int | None = Field(None, ge=0, le=100)
     genre: str | None = None
     community_rules: bool | None = None
     posts_enabled: bool | None = None
     faq_enabled: bool | None = None
-    refund_deadline_days: int | None = None
+    refund_deadline_days: int | None = Field(None, ge=0)
     ticket_strategy_id: int | None = None
     # Parking & Transport
-    parking_info: str | None = None
-    transit_info: str | None = None
-    rideshare_info: str | None = None
-    accessibility_info: str | None = None
+    parking_info: str | None = Field(None, max_length=2000)
+    transit_info: str | None = Field(None, max_length=2000)
+    rideshare_info: str | None = Field(None, max_length=2000)
+    accessibility_info: str | None = Field(None, max_length=2000)
     has_schedule: bool | None = None
     link_funding_to_tiers: bool | None = None
-    max_discount_percent: int | None = None
+    max_discount_percent: int | None = Field(None, ge=0, le=100)
     age_restricted: bool | None = None
-    min_age: int | None = None
+    min_age: int | None = Field(None, ge=0, le=120)
     # Per-event policy settings
-    waitlist_max_size: int | None = None
+    waitlist_max_size: int | None = Field(None, ge=1)
     waitlist_auto_approve: bool | None = None
-    event_max_images: int | None = None
-    max_posts_per_day: int | None = None
-    max_co_organizers: int | None = None
-    refund_deadline_percent: int | None = None
-    reserved_spots_release_percent: int | None = None  # 0–100; 100 = release at live
+    event_max_images: int | None = Field(None, ge=1)
+    max_posts_per_day: int | None = Field(None, ge=1)
+    max_co_organizers: int | None = Field(None, ge=1)
+    refund_deadline_percent: int | None = Field(None, ge=0, le=100)
+    reserved_spots_release_percent: int | None = Field(None, ge=0, le=100)  # 0–100; 100 = release at live
     release_tier_spot_limits: bool | None = None  # if True, also zeroes tier.max_reserved_spots at release
     is_private: bool | None = None  # set True to make closed event private (accessible only via share link)
 
@@ -166,7 +166,7 @@ class RespondToInvitationBody(BaseModel):
 
 
 class CancelBody(BaseModel):
-    reason: str
+    reason: str = Field(..., min_length=1, max_length=2000)
 
 
 class OrganizerTrustInfo(BaseModel):
@@ -273,7 +273,7 @@ class EventResponse(BaseModel):
 
 
 class EventPostCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=5000)
 
 
 class EventPostResponse(BaseModel):
@@ -314,12 +314,12 @@ class MapEventMarker(BaseModel):
 
 
 class EventDiscountCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     discount_type: str  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents' | 'funding_milestone'
-    value: int
+    value: int = Field(..., ge=1)
     target: str = "all"  # 'all' | 'pledgers' | 'non_pledgers'
-    milestone_percent: int | None = None  # required when discount_type='funding_milestone'
-    milestone_discount_value: int | None = None  # percent or cents discount at this milestone
+    milestone_percent: int | None = Field(None, ge=1, le=100)  # required when discount_type='funding_milestone'
+    milestone_discount_value: int | None = Field(None, ge=1)  # percent or cents discount at this milestone
 
 
 class EventDiscountResponse(BaseModel):

@@ -187,8 +187,27 @@ class EventProvider extends ChangeNotifier {
     _eventCache.remove(id);
   }
 
-  void clearCache() {
+  /// Clear only the in-memory detail cache (used after single-event mutations).
+  void clearDetailCache() {
     _eventCache.clear();
+  }
+
+  /// Reset ALL cached state — events list, pagination, selected event, detail
+  /// cache, loading flags, and viewer-data versions. Called on logout to prevent
+  /// data from one user session leaking into another.
+  void clearCache() {
+    _events = [];
+    _selectedEvent = null;
+    _isLoading = false;
+    _isLoadingMore = false;
+    _error = null;
+    _nextCursor = null;
+    _hasMore = true;
+    _lastFilters = null;
+    _eventCache.clear();
+    _registrationVersion = 0;
+    _viewerDataVersion = 0;
+    notifyListeners();
   }
 
   Future<bool> createEvent(EventCreateRequest data) async {

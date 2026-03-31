@@ -52,7 +52,17 @@ class _PlaceBidDialogState extends State<PlaceBidDialog> {
     return amount > 0;
   }
 
+  String? get _amountError {
+    final text = _amountCtrl.text;
+    if (text.isEmpty) return 'Required';
+    final n = double.tryParse(text);
+    if (n == null) return 'Enter a valid number';
+    if (n <= 0) return 'Must be greater than \$0';
+    return null;
+  }
+
   void _submit() {
+    if (_amountError != null) return;
     final amount = ((double.tryParse(_amountCtrl.text) ?? 0) * 100).round();
     final proposal = _proposalCtrl.text.trim();
     Navigator.pop(
@@ -124,9 +134,12 @@ class _PlaceBidDialogState extends State<PlaceBidDialog> {
                   children: [
                     TextField(
                       controller: _amountCtrl,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Bid Amount (\$)',
                         prefixText: '\$ ',
+                        errorText: _amountCtrl.text.isNotEmpty
+                            ? _amountError
+                            : null,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,

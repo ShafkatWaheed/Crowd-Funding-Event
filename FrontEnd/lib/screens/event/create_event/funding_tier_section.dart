@@ -322,6 +322,13 @@ class _FundingSpotLimitToggleState extends State<FundingSpotLimitToggle> {
               ),
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
+              validator: (v) {
+                if (v == null || v.isEmpty) return null; // 0 = disabled
+                final n = int.tryParse(v);
+                if (n == null) return 'Enter a number';
+                if (n < 0) return 'Must be 0 or greater';
+                return null;
+              },
             ),
           ],
         ],

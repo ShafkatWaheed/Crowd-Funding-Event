@@ -365,7 +365,7 @@ class _ExploreTabState extends State<ExploreTab> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 36,
+                          height: AppSpacing.chipRowHeight,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
                             children: _visibleStatuses.map((s) {
@@ -395,8 +395,8 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                       AppSpacing.hSm,
                       Container(
-                        height: 34,
-                        width: 34,
+                        height: AppSpacing.chipRowHeight,
+                        width: AppSpacing.chipRowHeight,
                         decoration: BoxDecoration(
                           color: _showAdvanced
                               ? AppTheme.primaryColor
@@ -418,7 +418,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                       AppSpacing.hXs,
                       SizedBox(
-                        height: 34,
+                        height: AppSpacing.chipRowHeight,
                         child: ElevatedButton(
                           onPressed: _applyFilters,
                           style: ElevatedButton.styleFrom(

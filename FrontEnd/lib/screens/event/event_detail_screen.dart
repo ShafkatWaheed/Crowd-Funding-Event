@@ -418,7 +418,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.warningColor)),
                 ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
             ],
             Expanded(
               child: Text(
@@ -555,7 +555,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
@@ -569,15 +569,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         event.genre!.substring(1),
                     color: AppTheme.secondaryColor,
                   ),
-                if (event.registrationCount > 0 &&
-                    event.status != EventStatus.approved &&
-                    event.status != EventStatus.waiting_event_date)
-                  EventDetailHelpers.tagPill(
-                    icon: Icons.group_rounded,
-                    label:
-                        '${event.registrationCount} ${(event.status == EventStatus.selling_tickets || event.status == EventStatus.live) ? 'engaged' : 'joined'}',
-                    color: AppTheme.accentColor,
-                  ),
                 if (event.organizerName != null &&
                     event.organizerName!.isNotEmpty)
                   GestureDetector(
@@ -588,29 +579,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       color: AppTheme.accentColor,
                     ),
                   ),
-                if (event.status != EventStatus.waiting_event_date)
-                  GestureDetector(
-                    onTap: () => _showOrganizerBottomSheet(event),
-                    child: EventDetailHelpers.trustBadgePill(context, event),
-                  ),
-                if (_revenueCents > 0 &&
-                    user != null &&
-                    (user.isOrganizer ||
-                        user.isAdmin ||
-                        event.viewerIsCoOrganizer) &&
-                    !widget.readOnly)
-                  EventDetailHelpers.tagPill(
-                    icon: Icons.paid_rounded,
-                    label:
-                        '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                    color: context.ticketAccent,
-                  ),
               ],
             )
                 .animate()
                 .fadeIn(duration: 300.ms, delay: 80.ms)
                 .slideX(begin: -0.04, duration: 300.ms),
-            const SizedBox(height: 16),
+            AppSpacing.vLg,
             EventLifecycleBreadcrumb(event: event),
           ],
         ),

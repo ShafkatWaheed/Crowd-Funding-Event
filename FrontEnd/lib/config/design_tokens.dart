@@ -16,6 +16,9 @@ class AppSpacing {
   static const double xxxl = 32;
   static const double huge = 40;
 
+  /// Standard height for horizontal chip scroll rows (genre, status, city).
+  static const double chipRowHeight = 38;
+
   static const EdgeInsets paddingSm  = EdgeInsets.all(sm);
   static const EdgeInsets paddingMd  = EdgeInsets.all(md);
   static const EdgeInsets paddingLg  = EdgeInsets.all(lg);

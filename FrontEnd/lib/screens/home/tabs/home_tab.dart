@@ -50,6 +50,7 @@ class _HomeTabState extends State<HomeTab> {
   String? _homeGenre;
   String? _homeStatus;
   String? _homeCityFilter;
+  bool _showFilters = false;
   List<Event> _homeSearchResults = [];
   bool get _isHomeFiltered =>
       _homeSearchCtrl.text.isNotEmpty ||
@@ -493,117 +494,157 @@ class _HomeTabState extends State<HomeTab> {
                   ),
                   AppSpacing.vXl,
                   SizedBox(
-                    height: 38,
+                    height: AppSpacing.chipRowHeight,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      children: widget.genres.map((g) {
-                        final isActive = _homeGenre == g;
-                        final isDark = Theme.of(context).brightness == Brightness.dark;
-                        final genreColor = AppIcons.genreColor(g, isDark: isDark);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: AppSpacing.sm),
-                          child: AppChip(
-                            label: g[0].toUpperCase() + g.substring(1),
-                            selected: isActive,
-                            onSelected: (selected) {
-                              setState(() => _homeGenre = selected ? g : null);
-                              _homeSearch();
-                            },
-                            chipColor: genreColor,
-                            avatarIcon: AppIcons.genreIcon(g),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  AppSpacing.vSm,
-                  SizedBox(
-                    height: 38,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: _visibleStatuses.map((s) {
-                        final isActive = _homeStatus == s.name;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: AppSpacing.sm),
-                          child: AppChip(
-                            label: statusDisplayName(s),
-                            selected: isActive,
-                            onSelected: (selected) {
-                              setState(
-                                  () => _homeStatus = selected ? s.name : null);
-                              _homeSearch();
-                            },
-                            chipColor: statusChipColor(context, s),
-                            avatarIcon: statusChipIcon(s),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  if (widget.cities.isNotEmpty) ...[
-                    AppSpacing.vSm,
-                    SizedBox(
-                      height: 38,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          Padding(
+                      children: [
+                        ..._visibleStatuses.map((s) {
+                          final isActive = _homeStatus == s.name;
+                          return Padding(
                             padding: const EdgeInsets.only(right: AppSpacing.sm),
-                            child: ChoiceChip(
-                              label: const Text('All Cities'),
-                              selected: _homeCityFilter == null,
-                              onSelected: (_) {
-                                setState(() => _homeCityFilter = null);
+                            child: AppChip(
+                              label: statusDisplayName(s),
+                              selected: isActive,
+                              onSelected: (selected) {
+                                setState(
+                                    () => _homeStatus = selected ? s.name : null);
                                 _homeSearch();
                               },
-                              selectedColor: AppTheme.accentColor,
-                              backgroundColor: AppTheme.cardOf(context),
-                              side: BorderSide(
-                                color: _homeCityFilter == null
-                                    ? AppTheme.accentColor
-                                    : AppTheme.dividerOf(context),
-                              ),
-                              labelStyle: AppTypography.caption.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: _homeCityFilter == null
-                                    ? Colors.white
-                                    : AppTheme.textPrimaryOf(context),
-                              ),
+                              chipColor: statusChipColor(context, s),
+                              avatarIcon: statusChipIcon(s),
+                            ),
+                          );
+                        }),
+                        Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
+                          child: ActionChip(
+                            avatar: Icon(
+                              _showFilters
+                                  ? Icons.filter_list_off_rounded
+                                  : Icons.filter_list_rounded,
+                              size: AppIconSize.sm,
+                            ),
+                            label: Text('Filters', style: AppTypography.chip),
+                            side: BorderSide(
+                              color: _showFilters
+                                  ? AppTheme.accentColor
+                                  : AppTheme.dividerOf(context),
+                            ),
+                            backgroundColor: _showFilters
+                                ? AppTheme.accentColor.withValues(alpha: 0.12)
+                                : AppTheme.cardOf(context),
+                            onPressed: () =>
+                                setState(() => _showFilters = !_showFilters),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Column(
+                      children: [
+                        AppSpacing.vSm,
+                        SizedBox(
+                          height: AppSpacing.chipRowHeight,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: widget.genres.map((g) {
+                              final isActive = _homeGenre == g;
+                              final isDark =
+                                  Theme.of(context).brightness == Brightness.dark;
+                              final genreColor =
+                                  AppIcons.genreColor(g, isDark: isDark);
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.only(right: AppSpacing.sm),
+                                child: AppChip(
+                                  label: g[0].toUpperCase() + g.substring(1),
+                                  selected: isActive,
+                                  onSelected: (selected) {
+                                    setState(
+                                        () => _homeGenre = selected ? g : null);
+                                    _homeSearch();
+                                  },
+                                  chipColor: genreColor,
+                                  avatarIcon: AppIcons.genreIcon(g),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        if (widget.cities.isNotEmpty) ...[
+                          AppSpacing.vSm,
+                          SizedBox(
+                            height: AppSpacing.chipRowHeight,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.only(right: AppSpacing.sm),
+                                  child: ChoiceChip(
+                                    label: const Text('All Cities'),
+                                    selected: _homeCityFilter == null,
+                                    onSelected: (_) {
+                                      setState(() => _homeCityFilter = null);
+                                      _homeSearch();
+                                    },
+                                    selectedColor: AppTheme.accentColor,
+                                    backgroundColor: AppTheme.cardOf(context),
+                                    side: BorderSide(
+                                      color: _homeCityFilter == null
+                                          ? AppTheme.accentColor
+                                          : AppTheme.dividerOf(context),
+                                    ),
+                                    labelStyle: AppTypography.caption.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: _homeCityFilter == null
+                                          ? Colors.white
+                                          : AppTheme.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                ),
+                                ...widget.cities.map((c) {
+                                  final isActive = _homeCityFilter == c;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                        right: AppSpacing.sm),
+                                    child: ChoiceChip(
+                                      label: Text(c),
+                                      selected: isActive,
+                                      onSelected: (selected) {
+                                        setState(() => _homeCityFilter =
+                                            selected ? c : null);
+                                        _homeSearch();
+                                      },
+                                      selectedColor: AppTheme.accentColor,
+                                      backgroundColor: AppTheme.cardOf(context),
+                                      side: BorderSide(
+                                        color: isActive
+                                            ? AppTheme.accentColor
+                                            : AppTheme.dividerOf(context),
+                                      ),
+                                      labelStyle: AppTypography.caption.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: isActive
+                                            ? Colors.white
+                                            : AppTheme.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
                             ),
                           ),
-                          ...widget.cities.map((c) {
-                            final isActive = _homeCityFilter == c;
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.only(right: AppSpacing.sm),
-                              child: ChoiceChip(
-                                label: Text(c),
-                                selected: isActive,
-                                onSelected: (selected) {
-                                  setState(() =>
-                                      _homeCityFilter = selected ? c : null);
-                                  _homeSearch();
-                                },
-                                selectedColor: AppTheme.accentColor,
-                                backgroundColor: AppTheme.cardOf(context),
-                                side: BorderSide(
-                                  color: isActive
-                                      ? AppTheme.accentColor
-                                      : AppTheme.dividerOf(context),
-                                ),
-                                labelStyle: AppTypography.caption.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: isActive
-                                      ? Colors.white
-                                      : AppTheme.textPrimaryOf(context),
-                                ),
-                              ),
-                            );
-                          }),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
+                    crossFadeState: _showFilters
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: AppDuration.normal,
+                  ),
                 ],
               ),
             ),

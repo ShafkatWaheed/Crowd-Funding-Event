@@ -89,11 +89,9 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
     final progressPct = (progress * 100).clamp(0, 999);
     final isFunded = _goalCents != null && _totalPledgedCents >= _goalCents!;
 
-    final accentColor = const Color(0xFF10B981);
-    final bgColor = isDark ? const Color(0xFF0A1410) : const Color(0xFFF0FDF4);
-    final cardBorder = isDark
-        ? const Color(0xFF10B981).withValues(alpha: 0.2)
-        : const Color(0xFF10B981).withValues(alpha: 0.25);
+    final accentColor = AppTheme.purpleColor;
+    final bgColor = AppTheme.purpleSurfaceOf(context);
+    final cardBorder = AppTheme.purpleColor.withValues(alpha: isDark ? 0.25 : 0.3);
 
     final sorted = List<FundingMilestone>.from(_milestones)
       ..sort((a, b) => a.unlockPercent.compareTo(b.unlockPercent));
@@ -105,7 +103,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
         border: Border.all(color: cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.18 : 0.1),
+            color: AppTheme.purpleColor.withValues(alpha: isDark ? 0.28 : 0.12),
             blurRadius: 28,
             offset: const Offset(0, 6),
           ),
@@ -123,7 +121,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  const Color(0xFF10B981).withValues(alpha: isDark ? 0.12 : 0.07),
+                  AppTheme.purpleColor.withValues(alpha: isDark ? 0.15 : 0.08),
                   Colors.transparent,
                 ]),
               ),
@@ -179,7 +177,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                               isFunded ? Icons.check_rounded : Icons.remove_rounded,
                               size: 9,
                               color: isFunded
-                                  ? const Color(0xFF34D399)
+                                  ? const Color(0xFFBB86FC)
                                   : AppTheme.textSecondaryOf(context),
                             ),
                           ),
@@ -190,7 +188,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: isFunded
-                                  ? const Color(0xFF34D399)
+                                  ? const Color(0xFFBB86FC)
                                   : AppTheme.textSecondaryOf(context),
                             ),
                           ),
@@ -221,7 +219,7 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1.5,
                         height: 1,
-                        color: isDark ? const Color(0xFFF0FDF4) : AppTheme.textPrimary,
+                        color: AppTheme.textPrimaryOf(context),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -243,11 +241,11 @@ class _FundingResultsCardState extends State<FundingResultsCard> {
                 FundingShimmerBar(
                   progress: progress,
                   active: false, // frozen — no shimmer
-                  fillColors: const [Color(0xFF065F46), Color(0xFF10B981), Color(0xFF34D399)],
+                  fillColors: [AppTheme.purpleColor.withValues(alpha: 0.85), AppTheme.purpleColor, AppTheme.purpleColor],
                   trackColor: isDark
                       ? Colors.white.withValues(alpha: 0.06)
                       : Colors.black.withValues(alpha: 0.06),
-                  glowColor: const Color(0xFF10B981),
+                  glowColor: AppTheme.purpleColor,
                 ),
                 const SizedBox(height: 8),
                 Row(

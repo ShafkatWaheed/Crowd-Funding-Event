@@ -306,7 +306,7 @@ class _OrganizerPledgesScreenState extends State<OrganizerPledgesScreen> {
                       _chip(
                         '\$${(_totalAmount / 100).toStringAsFixed(2)}',
                         Icons.attach_money_rounded,
-                        AppTheme.tealColor,
+                        AppTheme.purpleColor,
                       ),
                       if (_totalNet > 0 && _totalNet != _totalAmount) ...[
                         const SizedBox(width: AppSpacing.sm),

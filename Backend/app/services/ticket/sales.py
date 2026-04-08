@@ -185,6 +185,14 @@ async def purchase_ticket(
     purchased_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.purchased)
     waitlisted_count = sum(1 for s in sales_result if s.status == TicketSaleStatus.waitlisted)
     logger.info("Ticket purchase completed", extra={"event_id": event_id, "user_id": user.id, "quantity": quantity, "purchased": purchased_count, "waitlisted": waitlisted_count})
+
+    # Add buyer to customer announcement channel (idempotent)
+    try:
+        from app.services.chat import channel_service
+        await channel_service.add_member(db, event_id=event_id, user_id=user.id, channel_type="customer")
+    except Exception:
+        logger.debug("Could not add ticket buyer to chat channel", extra={"event_id": event_id, "user_id": user.id})
+
     return sales_result
 
 

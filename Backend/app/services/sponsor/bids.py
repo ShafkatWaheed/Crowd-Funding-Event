@@ -194,6 +194,13 @@ async def accept_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
             bid_amount_cents=bid.amount_cents,
         )
 
+    # Add sponsor to announcement channel on acceptance
+    try:
+        from app.services.chat import channel_service
+        await channel_service.add_member(db, event_id=cat.event_id, user_id=bid.sponsor_user_id, channel_type="sponsor")
+    except Exception:
+        logger.debug("Could not add sponsor to chat channel", extra={"event_id": cat.event_id, "user_id": bid.sponsor_user_id})
+
     logger.info("Bid accepted", extra={"bid_id": bid.id, "cat_id": bid.category_id})
     return bid
 
@@ -234,6 +241,13 @@ async def reject_bid(db: AsyncSession, bid_id: int, user: User) -> SponsorBid:
             category_name=cat.name,
             bid_amount_cents=bid.amount_cents,
         )
+
+    # Revoke chat access on rejection
+    try:
+        from app.services.chat import conversation_service
+        await conversation_service.revoke_access(db, user_id=bid.sponsor_user_id, event_id=cat.event_id)
+    except Exception:
+        logger.debug("Could not revoke chat access after bid rejection", extra={"user_id": bid.sponsor_user_id, "event_id": cat.event_id})
 
     logger.info("Bid rejected", extra={"bid_id": bid.id})
     return bid

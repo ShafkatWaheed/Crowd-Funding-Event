@@ -1,0 +1,7 @@
+{"type":"server-started","port":57440,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:57440","screen_dir":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content","state_dir":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/state"}
+{"type":"screen-added","file":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content/chat-model-overview.html"}
+{"type":"screen-added","file":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content/nav-placement.html"}
+{"type":"screen-added","file":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content/combined-tickets-messages.html"}
+{"type":"screen-added","file":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content/unified-cards-refined.html"}
+{"type":"screen-added","file":"/home/shafkat/project/Crowd_Funding_Event/.superpowers/brainstorm/1725399-1775604701/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

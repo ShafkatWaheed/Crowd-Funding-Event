@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crowd Fund — Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void: #06060C;
+  --deep: #0B0B16;
+  --surf: #12121F;
+  --card: #181828;
+  --card2: #1E1E30;
+  --edge: #262640;
+  --mute: #3A3A56;
+  --dim: #6666888;
+  --sub: #8888A8;
+  --body: #B8B8D0;
+  --head: #E4E4F0;
+  --bright: #F4F4FF;
+
+  --blue: #276EF1;
+  --blue-hi: #5B8DEF;
+  --purple: #9333EA;
+  --purple-hi: #BB86FC;
+  --amber: #FFC043;
+  --amber-hi: #FFB74D;
+  --red: #E11900;
+  --red-hi: #EF5350;
+  --green: #05944F;
+  --green-hi: #66BB6A;
+  --grey: #6B6B6B;
+  --grey-hi: #9E9E9E;
+  --orange: #FF8C00;
+  --teal: #0D9488;
+  --teal-hi: #4DB6AC;
+  --gold: #D4A017;
+  --silver: #9E9E9E;
+  --bronze: #CD7F32;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Outfit',sans-serif;
+  background:var(--void);
+  color:var(--body);
+  overflow-x:hidden;
+  line-height:1.55;
+}
+
+/* ── grain ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.028'/%3E%3C/svg%3E");
+}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+/* ── HERO ── */
+.hero{
+  min-height:55vh;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;position:relative;
+  padding:80px 28px 48px;
+}
+.hero::before{
+  content:'';position:absolute;
+  top:-200px;left:50%;transform:translateX(-50%);
+  width:800px;height:800px;
+  background:radial-gradient(ellipse,rgba(147,51,234,0.06) 0%,rgba(39,110,241,0.04) 40%,transparent 70%);
+  pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:100px;
+  background:rgba(147,51,234,0.08);
+  border:1px solid rgba(147,51,234,0.18);
+  font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--purple-hi);margin-bottom:28px;
+  animation:fadeDown .6s ease both;
+}
+.hero h1{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(42px,7vw,80px);
+  font-weight:400;font-style:italic;
+  line-height:1.0;letter-spacing:-1px;
+  color:var(--bright);
+  margin-bottom:20px;
+  animation:fadeDown .6s .1s ease both;
+}
+.hero h1 em{font-style:normal;color:var(--purple-hi)}
+.hero p{
+  font-size:17px;color:var(--sub);max-width:480px;
+  animation:fadeDown .6s .2s ease both;
+}
+
+@keyframes fadeDown{
+  from{opacity:0;transform:translateY(-12px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ── NAV PILLS ── */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(6,6,12,0.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--edge);
+  padding:12px 0;
+}
+.nav-inner{
+  display:flex;gap:6px;overflow-x:auto;
+  padding:0 28px;
+  scrollbar-width:none;
+}
+.nav-inner::-webkit-scrollbar{display:none}
+.nav-pill{
+  flex-shrink:0;
+  padding:7px 16px;border-radius:100px;
+  font-size:12px;font-weight:600;
+  color:var(--sub);background:transparent;
+  border:1px solid transparent;
+  cursor:pointer;transition:all .2s;
+  text-decoration:none;white-space:nowrap;
+}
+.nav-pill:hover{color:var(--head);background:var(--card)}
+.nav-pill.active{color:var(--bright);background:var(--purple);border-color:var(--purple)}
+
+/* ── SECTIONS ── */
+section{padding:72px 0;position:relative}
+.section-tag{
+  font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--mute);margin-bottom:16px;
+}
+.section-title{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(28px,4vw,40px);
+  font-weight:400;line-height:1.15;
+  color:var(--bright);margin-bottom:8px;
+}
+.section-desc{color:var(--sub);font-size:15px;margin-bottom:40px;max-width:560px}
+
+/* ── SWATCH GRID ── */
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.swatches{grid-template-columns:repeat(2,1fr)}}
+.sw{
+  border-radius:14px;overflow:hidden;
+  background:var(--card);border:1px solid var(--edge);
+  transition:transform .25s,box-shadow .25s;
+  cursor:default;
+}
+.sw:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.35)}
+.sw-top{height:56px;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px 8px}
+.sw-hex{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+  color:rgba(255,255,255,.65);background:rgba(0,0,0,.3);
+  padding:2px 6px;border-radius:4px;
+}
+.sw-bot{padding:8px 10px}
+.sw-name{font-size:12px;font-weight:700;color:var(--head)}
+.sw-role{font-size:10px;color:var(--mute);font-weight:500;margin-top:1px}
+
+/* ── JOURNEY RAIL ── */
+.rail{display:flex;gap:2px;margin:36px 0 48px;overflow-x:auto;padding-bottom:8px}
+.rail::-webkit-scrollbar{height:3px}
+.rail::-webkit-scrollbar-track{background:var(--card);border-radius:2px}
+.rail::-webkit-scrollbar-thumb{background:var(--mute);border-radius:2px}
+.rail-stop{
+  flex:1;min-width:170px;
+  background:var(--card);border:1px solid var(--edge);
+  padding:20px 14px;text-align:center;
+  position:relative;
+}
+.rail-stop:first-child{border-radius:14px 0 0 14px}
+.rail-stop:last-child{border-radius:0 14px 14px 0}
+.rail-stop::after{
+  content:'';position:absolute;right:-7px;top:50%;transform:translateY(-50%);
+  width:12px;height:12px;border-radius:50%;
+  background:var(--edge);z-index:2;
+}
+.rail-stop:last-child::after{display:none}
+.rail-icon{
+  width:36px;height:36px;border-radius:50%;
+  margin:0 auto 8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.rail-label{font-size:11px;font-weight:700;color:var(--head);margin-bottom:2px}
+.rail-token{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--mute)}
+
+/* ── SCREEN MAP ── */
+.map-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:12px;
+}
+.map-card{
+  background:var(--card);border:1px solid var(--edge);
+  border-radius:12px;padding:16px;
+  transition:border-color .2s;
+}
+.map-card:hover{border-color:var(--purple)}
+.map-screen{font-size:13px;font-weight:700;color:var(--head);margin-bottom:6px}
+.map-colors{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.map-dot{
+  width:14px;height:14px;border-radius:4px;
+  border:1px solid rgba(255,255,255,.08);
+}
+.map-grade{
+  display:inline-flex;padding:3px 8px;border-radius:6px;
+  font-size:10px;font-weight:800;letter-spacing:.5px;
+}
+
+/* ── METRIC ROW ── */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:36px 0}
+@media(max-width:600px){.metrics{grid-template-columns:1fr}}
+.metric{
+  background:var(--card);border:1px solid var(--edge);
+  border-radius:14px;padding:24px;text-align:center;
+}
+.metric-val{
+  font-family:'Instrument Serif',serif;
+  font-size:48px;font-weight:400;font-style:italic;
+  color:var(--bright);line-height:1;margin-bottom:4px;
+}
+.metric-label{font-size:12px;color:var(--sub);font-weight:500}
+.metric-sub{font-size:10px;color:var(--mute);margin-top:4px}
+
+/* ── INLINE COLOR BAR ── */
+.cb{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 8px 3px 3px;border-radius:5px;
+  background:var(--deep);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--sub);
+}
+.cb-d{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+
+/* ── DIVIDER ── */
+.div{height:1px;margin:0;background:linear-gradient(90deg,transparent,var(--edge),transparent)}
+
+/* ── PHONE MOCKUP ── */
+.phones{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:36px 0}
+.phone{
+  width:240px;
+  background:var(--deep);border-radius:24px;
+  border:2px solid var(--edge);
+  padding:14px 12px 16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+  position:relative;
+}
+.phone::before{
+  content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  width:48px;height:3px;background:var(--edge);border-radius:2px;
+}
+.phone-label{
+  font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:var(--mute);text-align:center;margin-bottom:10px;margin-top:4px;
+}
+.ph-card{
+  background:var(--card);border-radius:10px;
+  padding:10px;margin-bottom:6px;
+  border:1px solid var(--edge);
+}
+.ph-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ph-pill{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 7px;border-radius:100px;
+  font-size:8px;font-weight:700;letter-spacing:.3px;
+}
+.ph-pill .d{width:5px;height:5px;border-radius:50%}
+.ph-bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin:6px 0 4px}
+.ph-fill{height:100%;border-radius:2px}
+.ph-text{font-size:9px;color:var(--sub)}
+.ph-title{font-size:11px;font-weight:700;color:var(--head)}
+.ph-big{font-size:22px;font-weight:900;color:var(--bright);letter-spacing:-1px;line-height:1}
+.ph-chip{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 6px;border-radius:4px;
+  font-size:7px;font-weight:600;
+  background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);
+  color:var(--sub);
+}
+.ph-badge{
+  padding:2px 6px;border-radius:100px;
+  font-size:7px;font-weight:700;letter-spacing:.5px;
+  background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.12);
+  color:#fff;
+}
+.ph-divider{height:0.5px;background:rgba(255,255,255,.06);margin:6px 0}
+.ph-btn{
+  width:100%;padding:8px;border-radius:8px;
+  text-align:center;font-size:9px;font-weight:700;
+  color:#fff;border:none;
+}
+
+/* ── VERDICT ── */
+.verdict{
+  text-align:center;padding:64px 28px;
+  position:relative;
+}
+.verdict::before{
+  content:'';position:absolute;
+  top:0;left:50%;transform:translateX(-50%);
+  width:600px;height:400px;
+  background:radial-gradient(ellipse,rgba(39,110,241,0.05) 0%,transparent 70%);
+  pointer-events:none;
+}
+.verdict h2{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(28px,4vw,42px);
+  font-weight:400;font-style:italic;
+  color:var(--bright);margin-bottom:12px;
+}
+.verdict p{color:var(--sub);font-size:15px;max-width:520px;margin:0 auto}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ HERO ═══════════ -->
+<div class="hero">
+  <div class="hero-badge">Design System v2.0</div>
+  <h1>Color <em>&</em> Cohesion</h1>
+  <p>The complete color architecture of Crowd Fund after consolidation &mdash; every token, every screen, every journey mapped.</p>
+</div>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#status" class="nav-pill active" onclick="activateNav(this)">Status System</a>
+    <a href="#features" class="nav-pill" onclick="activateNav(this)">Feature Zones</a>
+    <a href="#journeys" class="nav-pill" onclick="activateNav(this)">User Journeys</a>
+    <a href="#screens" class="nav-pill" onclick="activateNav(this)">Screen Map</a>
+    <a href="#brands" class="nav-pill" onclick="activateNav(this)">Brand Tokens</a>
+    <a href="#verdict" class="nav-pill" onclick="activateNav(this)">Verdict</a>
+  </div>
+</nav>
+
+<!-- ═══════════ STATUS SYSTEM ═══════════ -->
+<section id="status">
+<div class="wrap">
+  <div class="section-tag">Foundation</div>
+  <div class="section-title">4-Group Status System</div>
+  <p class="section-desc">9 distinct status colors consolidated into 4 semantic groups. Icons differentiate &mdash; color signals category.</p>
+
+  <div class="swatches">
+    <div class="sw">
+      <div class="sw-top" style="background:var(--blue-hi)"><span class="sw-hex">#5B8DEF</span></div>
+      <div class="sw-bot"><div class="sw-name">Active</div><div class="sw-role">approved &middot; selling &middot; live</div></div>
+    </div>
+    <div class="sw">
+      <div class="sw-top" style="background:var(--amber-hi)"><span class="sw-hex">#FFB74D</span></div>
+      <div class="sw-bot"><div class="sw-name">Attention</div><div class="sw-role">pending &middot; waiting &middot; review</div></div>
+    </div>
+    <div class="sw">
+      <div class="sw-top" style="background:var(--grey-hi)"><span class="sw-hex">#9E9E9E</span></div>
+      <div class="sw-bot"><div class="sw-name">Inactive</div><div class="sw-role">draft &middot; completed</div></div>
+    </div>
+    <div class="sw">
+      <div class="sw-top" style="background:var(--red-hi)"><span class="sw-hex">#EF5350</span></div>
+      <div class="sw-bot"><div class="sw-name">Negative</div><div class="sw-role">cancelled</div></div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-val" style="color:var(--green-hi)">4</div>
+      <div class="metric-label">Status colors</div>
+      <div class="metric-sub">down from 9</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color:var(--purple-hi)">0</div>
+      <div class="metric-label">Orphan hex codes</div>
+      <div class="metric-sub">all in AppTheme tokens</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color:var(--blue-hi)">100%</div>
+      <div class="metric-label">Screens aligned</div>
+      <div class="metric-sub">home, cards, detail, filters</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════ FEATURE ZONES ═══════════ -->
+<section id="features">
+<div class="wrap">
+  <div class="section-tag">Color Zones</div>
+  <div class="section-title">Feature-Owned Accents</div>
+  <p class="section-desc">Each domain owns one accent. No two zones share a color in the same context.</p>
+
+  <div class="swatches" style="grid-template-columns:repeat(3,1fr)">
+    <div class="sw">
+      <div class="sw-top" style="background:linear-gradient(135deg,var(--purple),#C026D3)"><span class="sw-hex">purpleColor</span></div>
+      <div class="sw-bot"><div class="sw-name">Funding</div><div class="sw-role">active card &middot; results &middot; milestones &middot; CTA</div></div>
+    </div>
+    <div class="sw">
+      <div class="sw-top" style="background:linear-gradient(135deg,var(--orange),var(--amber))"><span class="sw-hex">pledgeGradient</span></div>
+      <div class="sw-bot"><div class="sw-name">Pledge</div><div class="sw-role">pledge button &middot; event card bar</div></div>
+    </div>
+    <div class="sw">
+      <div class="sw-top" style="background:var(--blue-hi)"><span class="sw-hex">accentColor</span></div>
+      <div class="sw-bot"><div class="sw-name">Ticket + UI</div><div class="sw-role">tiers &middot; receipt &middot; buttons &middot; links</div></div>
+    </div>
+  </div>
+
+  <!-- ── LIVE MOCKUPS ── -->
+  <div class="phones" style="margin-top:48px">
+
+    <!-- Funding Card -->
+    <div class="phone">
+      <div class="phone-label">Funding Card</div>
+      <div class="ph-card" style="background:#1E1028;border-color:rgba(147,51,234,.25)">
+        <div class="ph-row">
+          <span style="color:var(--purple-hi);font-size:8px;font-weight:700;opacity:.7">FUNDING</span>
+          <span style="flex:1"></span>
+          <span class="ph-pill" style="background:rgba(147,51,234,.1);border:1px solid rgba(147,51,234,.25);color:var(--purple-hi)">2d 14h</span>
+        </div>
+        <div style="margin:8px 0 4px">
+          <span style="color:var(--purple-hi);font-size:13px;opacity:.6">$</span>
+          <span class="ph-big">4,200</span>
+          <span class="ph-text" style="margin-left:4px">of $5,000</span>
+        </div>
+        <div class="ph-bar"><div class="ph-fill" style="width:84%;background:var(--purple);box-shadow:0 0 8px rgba(147,51,234,.4)"></div></div>
+        <div class="ph-text" style="font-size:8px;color:var(--purple-hi);font-weight:700">84% funded</div>
+        <div style="margin-top:8px;text-align:center">
+          <span class="ph-text" style="color:var(--sub);font-size:8px;cursor:pointer">Show details &#9660;</span>
+        </div>
+        <div class="ph-btn" style="background:var(--purple);margin-top:8px;box-shadow:0 4px 12px rgba(147,51,234,.35)">Back this Event</div>
+      </div>
+    </div>
+
+    <!-- Funding Results (FIXED) -->
+    <div class="phone">
+      <div class="phone-label">Funding Results</div>
+      <div class="ph-card" style="background:#1E1028;border-color:rgba(147,51,234,.25)">
+        <div class="ph-row">
+          <span style="color:var(--purple-hi);font-size:8px;font-weight:700;opacity:.7">FUNDING RESULTS</span>
+          <span style="flex:1"></span>
+          <span class="ph-pill" style="background:rgba(187,134,252,.12);border:1px solid rgba(187,134,252,.28);color:var(--purple-hi)">
+            <span style="font-size:6px">&#10003;</span> Funded
+          </span>
+        </div>
+        <div style="margin:8px 0 4px">
+          <span style="color:var(--purple-hi);font-size:13px;opacity:.6">$</span>
+          <span class="ph-big">5,200</span>
+          <span class="ph-text" style="margin-left:4px">of $5,000</span>
+        </div>
+        <div class="ph-bar"><div class="ph-fill" style="width:100%;background:linear-gradient(90deg,rgba(147,51,234,.85),var(--purple),var(--purple))"></div></div>
+        <div class="ph-text" style="font-size:8px;color:var(--purple-hi);font-weight:700">104% funded &middot; Closed Mar 15</div>
+      </div>
+      <div style="text-align:center;margin-top:4px">
+        <span style="font-size:8px;color:var(--green-hi);font-weight:600">&#10003; Same purple as active card</span>
+      </div>
+    </div>
+
+    <!-- Ticket Receipt (FIXED) -->
+    <div class="phone">
+      <div class="phone-label">Ticket Receipt</div>
+      <div class="ph-card">
+        <div style="background:linear-gradient(135deg,#111,#1a1a28);border-radius:8px;padding:10px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:10px">&#127915;</div>
+            <div>
+              <div style="font-size:9px;font-weight:700;color:#fff">Purchase Receipt</div>
+              <div style="font-size:7px;color:rgba(255,255,255,.5)">#TKT-REC-0042</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:8px;font-weight:800;letter-spacing:1px;color:var(--blue-hi);margin:6px 0 3px">EVENT</div>
+        <div class="ph-text">Annual Tech Conference</div>
+        <div class="ph-divider"></div>
+        <div style="font-size:8px;font-weight:800;letter-spacing:1px;color:var(--blue-hi);margin:4px 0 3px">TICKET</div>
+        <div class="ph-text">Platinum &middot; $125.00</div>
+        <div class="ph-divider"></div>
+        <div class="ph-btn" style="background:var(--blue);margin-top:8px">Buy Another Ticket</div>
+      </div>
+      <div style="text-align:center;margin-top:4px">
+        <span style="font-size:8px;color:var(--green-hi);font-weight:600">&#10003; Blue labels + blue button</span>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════ JOURNEYS ═══════════ -->
+<section id="journeys">
+<div class="wrap">
+  <div class="section-tag">User Flows</div>
+  <div class="section-title">Color Continuity</div>
+  <p class="section-desc">Every user journey now maintains one accent from start to finish.</p>
+
+  <div style="font-size:13px;font-weight:700;color:var(--head);margin-bottom:12px">Funding Journey</div>
+  <div class="rail">
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(147,51,234,.15);color:var(--purple-hi)">$</div>
+      <div class="rail-label">Active Funding</div>
+      <div class="rail-token">purpleColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(147,51,234,.15);color:var(--purple-hi)">&#10003;</div>
+      <div class="rail-label">Milestone Hit</div>
+      <div class="rail-token">purpleColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(187,134,252,.15);color:var(--purple-hi)">&#9733;</div>
+      <div class="rail-label">Results</div>
+      <div class="rail-token">purpleColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(255,192,67,.12);color:var(--amber-hi)">&#9993;</div>
+      <div class="rail-label">Receipt</div>
+      <div class="rail-token">status-derived</div>
+    </div>
+  </div>
+
+  <div style="font-size:13px;font-weight:700;color:var(--head);margin-bottom:12px;margin-top:32px">Ticket Journey</div>
+  <div class="rail">
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(91,141,239,.12);color:var(--blue-hi)">&#127915;</div>
+      <div class="rail-label">Browse Tiers</div>
+      <div class="rail-token">accentColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(91,141,239,.12);color:var(--blue-hi)">&#128179;</div>
+      <div class="rail-label">Purchase</div>
+      <div class="rail-token">accentColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(91,141,239,.12);color:var(--blue-hi)">&#128196;</div>
+      <div class="rail-label">Receipt</div>
+      <div class="rail-token">accentColor</div>
+    </div>
+    <div class="rail-stop">
+      <div class="rail-icon" style="background:rgba(91,141,239,.12);color:var(--blue-hi)">&#128247;</div>
+      <div class="rail-label">Scan</div>
+      <div class="rail-token">status-coded</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════ SCREEN MAP ═══════════ -->
+<section id="screens">
+<div class="wrap">
+  <div class="section-tag">Coverage</div>
+  <div class="section-title">Every Screen, Graded</div>
+  <p class="section-desc">Color cohesion ratings across all major views in dark mode.</p>
+
+  <div class="map-grid">
+    <div class="map-card">
+      <div class="map-screen">Home Feed</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:var(--grey-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Event Cards</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:var(--orange)"></span><span class="map-dot" style="background:var(--grey-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Event Detail</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:var(--amber-hi)"></span><span class="map-dot" style="background:var(--grey-hi)"></span><span class="map-dot" style="background:var(--red-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Profiles</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:#E1306C"></span><span class="map-dot" style="background:#1877F2"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Receipts</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:var(--grey-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Scanner</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--green-hi)"></span><span class="map-dot" style="background:var(--red-hi)"></span><span class="map-dot" style="background:var(--amber-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Funding Card</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--purple-hi)"></span><span class="map-dot" style="background:var(--gold)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Funding Results</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--purple-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Ticket Receipt</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">My Tickets</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--blue-hi)"></span><span class="map-dot" style="background:var(--grey-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A-</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Leaderboard</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--gold)"></span><span class="map-dot" style="background:var(--silver)"></span><span class="map-dot" style="background:var(--bronze)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A-</span>
+    </div>
+    <div class="map-card">
+      <div class="map-screen">Organizer Pledges</div>
+      <div class="map-colors"><span class="map-dot" style="background:var(--purple-hi)"></span></div>
+      <span class="map-grade" style="background:rgba(102,187,106,.12);color:var(--green-hi)">A-</span>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════ BRAND TOKENS ═══════════ -->
+<section id="brands">
+<div class="wrap">
+  <div class="section-tag">Centralized</div>
+  <div class="section-title">Brand & Specialty Tokens</div>
+  <p class="section-desc">50+ duplicated hex literals eliminated. Every third-party color now lives in AppTheme.</p>
+
+  <div class="swatches" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">
+    <div class="sw"><div class="sw-top" style="background:#E1306C;height:40px"><span class="sw-hex">IG</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Instagram</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:#1877F2;height:40px"><span class="sw-hex">FB</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Facebook</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:#0A66C2;height:40px"><span class="sw-hex">LI</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">LinkedIn</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:#FF0000;height:40px"><span class="sw-hex">YT</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">YouTube</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:var(--gold);height:40px"><span class="sw-hex">1st</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Gold</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:var(--silver);height:40px"><span class="sw-hex">2nd</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Silver</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:var(--bronze);height:40px"><span class="sw-hex">3rd</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Bronze</div></div></div>
+    <div class="sw"><div class="sw-top" style="background:#4F46E5;height:40px"><span class="sw-hex">Web</span></div><div class="sw-bot"><div class="sw-name" style="font-size:10px">Indigo</div></div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:32px">
+    <div class="ph-card" style="background:var(--card);border:1px solid var(--edge);border-radius:12px;padding:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mute);margin-bottom:8px">AUTH GRADIENT</div>
+      <div style="height:48px;border-radius:8px;background:linear-gradient(180deg,#0A0A1A,#121228)"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--mute);margin-top:6px">AppTheme.authGradient(isDark)</div>
+    </div>
+    <div class="ph-card" style="background:var(--card);border:1px solid var(--edge);border-radius:12px;padding:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mute);margin-bottom:8px">SOCIAL HEADER</div>
+      <div style="height:48px;border-radius:8px;background:linear-gradient(135deg,#1A1035,#0D1B3E)"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--mute);margin-top:6px">AppTheme.socialHeaderGradient(isDark)</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════ VERDICT ═══════════ -->
+<section id="verdict">
+<div class="verdict">
+  <h2>All Seams Closed</h2>
+  <p>Funding stays purple from first pledge to results. Tickets are blue everywhere. 4 status colors, 3 feature accents, 8 brand tokens. Every screen A- or above. The system is cohesive.</p>
+  <div class="metrics" style="max-width:600px;margin:36px auto 0">
+    <div class="metric">
+      <div class="metric-val" style="color:var(--green-hi)">12/12</div>
+      <div class="metric-label">Screens passing</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color:var(--purple-hi)">0</div>
+      <div class="metric-label">Color seams</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color:var(--blue-hi)">658</div>
+      <div class="metric-label">Tests passing</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<script>
+function activateNav(el){
+  document.querySelectorAll('.nav-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+}
+// Auto-highlight nav on scroll
+const sections = document.querySelectorAll('section[id]');
+const pills = document.querySelectorAll('.nav-pill');
+window.addEventListener('scroll',()=>{
+  let current='';
+  sections.forEach(s=>{
+    if(window.scrollY >= s.offsetTop - 120) current=s.id;
+  });
+  pills.forEach(p=>{
+    p.classList.remove('active');
+    if(p.getAttribute('href')==='#'+current) p.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>

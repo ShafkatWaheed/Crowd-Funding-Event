@@ -1,0 +1,157 @@
+<h2>Where does the message icon go for each user type?</h2>
+<p class="subtitle">Currently: Organizers & Sponsors get a "Channel" tab. Customers get "Tickets" instead. With the new chat model, all 3 roles need chat access.</p>
+
+<div class="section">
+  <h3>Current Bottom Nav</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Organizer / Sponsor (today)</div>
+      <div class="mockup-body" style="padding: 0;">
+        <div style="display: flex; justify-content: space-around; padding: 12px 8px; background: rgba(255,255,255,0.05);">
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">🏠</div>Home
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">🧭</div>Explore
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">📊</div>Manage
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #6366f1;">
+            <div style="font-size: 20px; margin-bottom: 2px;">💬</div>Channel
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Customer (today)</div>
+      <div class="mockup-body" style="padding: 0;">
+        <div style="display: flex; justify-content: space-around; padding: 12px 8px; background: rgba(255,255,255,0.05);">
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">🏠</div>Home
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">🧭</div>Explore
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #888;">
+            <div style="font-size: 20px; margin-bottom: 2px;">📊</div>Manage
+          </div>
+          <div style="text-align: center; font-size: 11px; color: #6366f1;">
+            <div style="font-size: 20px; margin-bottom: 2px;">🎫</div>Tickets
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Options for the new navigation</h3>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Add 5th tab — Channel for everyone</h3>
+      <p>Keep Tickets tab for customers, add Channel as a 5th tab. All roles get: Home, Explore, Manage, Tickets, Channel.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="padding: 0;">
+          <div style="display: flex; justify-content: space-around; padding: 12px 4px; background: rgba(255,255,255,0.05);">
+            <div style="text-align: center; font-size: 10px; color: #888;">
+              <div style="font-size: 18px; margin-bottom: 2px;">🏠</div>Home
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #888;">
+              <div style="font-size: 18px; margin-bottom: 2px;">🧭</div>Explore
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #888;">
+              <div style="font-size: 18px; margin-bottom: 2px;">📊</div>Manage
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #888;">
+              <div style="font-size: 18px; margin-bottom: 2px;">🎫</div>Tickets
+            </div>
+            <div style="text-align: center; font-size: 10px; color: #6366f1;">
+              <div style="font-size: 18px; margin-bottom: 2px;">💬</div>Channel
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>All features always accessible</li><li>No hidden functionality</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>5 tabs feels crowded on small phones</li><li>Organizers already have 4 — 5 is the material design max</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Replace Tickets with Channel for customers (move Tickets into Manage)</h3>
+      <p>Customers get: Home, Explore, Manage, Channel. Their tickets move into the Manage tab (already shows "My Events"). Same 4 tabs for all roles — Channel is always the 4th tab.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="padding: 0;">
+          <div style="font-size: 11px; color: #888; padding: 8px 12px 0; text-align: center;">Same for all roles:</div>
+          <div style="display: flex; justify-content: space-around; padding: 12px 8px; background: rgba(255,255,255,0.05);">
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">🏠</div>Home
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">🧭</div>Explore
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">📊</div>Manage
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #6366f1;">
+              <div style="font-size: 20px; margin-bottom: 2px;">💬</div>Channel
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Consistent 4 tabs for all roles</li><li>Clean, not crowded</li><li>Tickets naturally belong under "Manage"</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Customers lose quick ticket access (1 extra tap)</li><li>Need to rework Manage tab to include tickets</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Chat icon in app bar header (no tab change)</h3>
+      <p>Keep current 4-tab layout as-is. Add a chat/message icon to the top app bar (like notification bell). Tapping opens a full-screen chat view. All roles see it.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-body" style="padding: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-weight: 700; font-size: 16px;">CrowdFund</div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <div style="position: relative;">
+                <span style="font-size: 20px;">💬</span>
+                <span style="position: absolute; top: -4px; right: -6px; background: #ef4444; color: white; font-size: 9px; padding: 1px 4px; border-radius: 8px;">3</span>
+              </div>
+              <div style="position: relative;">
+                <span style="font-size: 20px;">🔔</span>
+                <span style="position: absolute; top: -4px; right: -6px; background: #ef4444; color: white; font-size: 9px; padding: 1px 4px; border-radius: 8px;">5</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-around; padding: 12px 8px; background: rgba(255,255,255,0.05);">
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">🏠</div>Home
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">🧭</div>Explore
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">📊</div>Manage
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #888;">
+              <div style="font-size: 20px; margin-bottom: 2px;">🎫</div>Tickets
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>No tab layout changes needed</li><li>Chat accessible from any tab</li><li>Badge always visible</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Organizer/Sponsor lose their dedicated Channel tab</li><li>App bar can get crowded (notifications + chat + search)</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

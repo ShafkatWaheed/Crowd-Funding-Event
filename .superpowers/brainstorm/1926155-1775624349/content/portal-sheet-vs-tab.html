@@ -1,0 +1,210 @@
+<h2>Portal: Bottom Sheet vs Full Tab</h2>
+<p class="subtitle">Side-by-side comparison for the customer's unified events view</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Option A — Pull-up Bottom Sheet</div>
+    <div class="mockup-body" style="padding: 0; position: relative; height: 580px; overflow: hidden;">
+
+      <!-- Background: whatever tab user was on (dimmed) -->
+      <div style="opacity: 0.3; padding: 16px;">
+        <div style="height: 40px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;"></div>
+        <div style="height: 120px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 8px;"></div>
+        <div style="height: 120px; background: rgba(255,255,255,0.05); border-radius: 12px;"></div>
+      </div>
+
+      <!-- Sheet overlay -->
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.4); max-height: 480px;">
+        <!-- Handle -->
+        <div style="display: flex; justify-content: center; padding: 10px 0 4px;">
+          <div style="width: 36px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px;"></div>
+        </div>
+
+        <!-- Search bar -->
+        <div style="padding: 8px 16px 12px;">
+          <div style="background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #888; font-size: 14px;">🔍</span>
+            <span style="color: #666; font-size: 13px;">Search events, tickets...</span>
+          </div>
+        </div>
+
+        <!-- Live event card -->
+        <div style="padding: 0 16px;">
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(239,68,68,0.06);">
+              <div>
+                <div style="font-weight: 700; font-size: 13px;">Art Exhibition Gala</div>
+                <div style="font-size: 10px; color: #888; margin-top: 1px;">The Grand Hall</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 5px; height: 5px; background: #ef4444; border-radius: 50%;"></div>
+                <span style="font-size: 10px; font-weight: 700; color: #ef4444;">LIVE</span>
+              </div>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">📢</span>
+              <span style="font-size: 11px; color: #a5b4fc; flex: 1;">Announcements</span>
+              <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">2</span>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">💬</span>
+              <span style="font-size: 11px; color: #ccc; flex: 1;">Chat with Organizer</span>
+              <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">1</span>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">🎫</span>
+              <span style="font-size: 11px; color: #ccc; flex: 1;">VIP Pass — #4821</span>
+              <span style="font-size: 10px; color: #6366f1;">View →</span>
+            </div>
+          </div>
+
+          <!-- Upcoming event card -->
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px;">
+              <div>
+                <div style="font-weight: 700; font-size: 13px;">Music Festival 2026</div>
+                <div style="font-size: 10px; color: #888; margin-top: 1px;">Central Park</div>
+              </div>
+              <span style="font-size: 10px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: 5px;">In 43d</span>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">📢</span>
+              <span style="font-size: 11px; color: #ccc; flex: 1;">Announcements</span>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">🎫</span>
+              <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7103</span>
+              <span style="font-size: 10px; color: #6366f1;">View →</span>
+            </div>
+            <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px;">🎫</span>
+              <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7104</span>
+              <span style="font-size: 10px; color: #6366f1;">View →</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom nav peeking through -->
+        <div style="display: flex; justify-content: space-around; padding: 10px 8px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.06);">
+          <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">🏠</div>Home</div>
+          <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">🧭</div>Explore</div>
+          <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">📊</div>Manage</div>
+          <div style="text-align: center; font-size: 9px; color: #6366f1;"><div style="font-size: 16px; position: relative; display: inline-block;">🎯<span style="position:absolute;top:-3px;right:-6px;background:#ef4444;color:white;font-size:7px;padding:0 3px;border-radius:6px;">3</span></div>Portal</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Option B — Full Tab (Current)</div>
+    <div class="mockup-body" style="padding: 0; height: 580px; overflow: hidden;">
+
+      <!-- Full tab content -->
+      <div style="padding: 16px;">
+        <!-- Event cards (same content, full screen) -->
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(239,68,68,0.06);">
+            <div>
+              <div style="font-weight: 700; font-size: 13px;">Art Exhibition Gala</div>
+              <div style="font-size: 10px; color: #888; margin-top: 1px;">The Grand Hall</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <div style="width: 5px; height: 5px; background: #ef4444; border-radius: 50%;"></div>
+              <span style="font-size: 10px; font-weight: 700; color: #ef4444;">LIVE</span>
+            </div>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">📢</span>
+            <span style="font-size: 11px; color: #a5b4fc; flex: 1;">Announcements</span>
+            <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">2</span>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">💬</span>
+            <span style="font-size: 11px; color: #ccc; flex: 1;">Chat with Organizer</span>
+            <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">1</span>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">🎫</span>
+            <span style="font-size: 11px; color: #ccc; flex: 1;">VIP Pass — #4821</span>
+            <span style="font-size: 10px; color: #6366f1;">View →</span>
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px;">
+            <div>
+              <div style="font-weight: 700; font-size: 13px;">Music Festival 2026</div>
+              <div style="font-size: 10px; color: #888; margin-top: 1px;">Central Park</div>
+            </div>
+            <span style="font-size: 10px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: 5px;">In 43d</span>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">📢</span>
+            <span style="font-size: 11px; color: #ccc; flex: 1;">Announcements</span>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">🎫</span>
+            <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7103</span>
+            <span style="font-size: 10px; color: #6366f1;">View →</span>
+          </div>
+          <div style="padding: 6px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 12px;">🎫</span>
+            <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7104</span>
+            <span style="font-size: 10px; color: #6366f1;">View →</span>
+          </div>
+        </div>
+
+        <!-- More space, feels emptier -->
+        <div style="height: 180px;"></div>
+      </div>
+
+      <!-- Bottom nav -->
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; padding: 10px 8px; background: rgba(20,20,40,0.95); border-top: 1px solid rgba(255,255,255,0.06);">
+        <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">🏠</div>Home</div>
+        <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">🧭</div>Explore</div>
+        <div style="text-align: center; font-size: 9px; color: #888;"><div style="font-size: 16px;">📊</div>Manage</div>
+        <div style="text-align: center; font-size: 9px; color: #6366f1;"><div style="font-size: 16px; position: relative; display: inline-block;">🎯<span style="position:absolute;top:-3px;right:-6px;background:#ef4444;color:white;font-size:7px;padding:0 3px;border-radius:6px;">3</span></div>Portal</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Comparison</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="border-bottom: 2px solid rgba(255,255,255,0.2);">
+        <th style="text-align: left; padding: 8px;"></th>
+        <th style="text-align: center; padding: 8px;">Bottom Sheet</th>
+        <th style="text-align: center; padding: 8px;">Full Tab</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Quick glance</td>
+        <td style="text-align: center;">✅ Slides up, peek + dismiss</td>
+        <td style="text-align: center;">❌ Full context switch</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Search</td>
+        <td style="text-align: center;">✅ Built into sheet header</td>
+        <td style="text-align: center;">⚠️ Would need app bar search</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Screen space</td>
+        <td style="text-align: center;">⚠️ ~75% height</td>
+        <td style="text-align: center;">✅ Full screen</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Many events</td>
+        <td style="text-align: center;">⚠️ Scrolls, but cramped</td>
+        <td style="text-align: center;">✅ Full scroll area</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;">Consistency</td>
+        <td style="text-align: center;">✅ Matches old Tickets UX</td>
+        <td style="text-align: center;">✅ Matches other tabs</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

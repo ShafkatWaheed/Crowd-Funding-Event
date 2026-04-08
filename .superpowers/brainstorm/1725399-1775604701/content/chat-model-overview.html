@@ -1,0 +1,173 @@
+<h2>Chat Communication Model</h2>
+<p class="subtitle">Verify this matches your vision before we proceed to architecture approaches</p>
+
+<div class="section">
+  <h3>Organizer View</h3>
+  <div class="mockup">
+    <div class="mockup-header">Organizer Chat Flow</div>
+    <div class="mockup-body" style="padding: 0;">
+      <!-- Event List -->
+      <div style="padding: 16px; border-bottom: 2px solid rgba(255,255,255,0.1);">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px;">Step 1 — Select Event</div>
+        <div style="display: flex; gap: 12px;">
+          <div style="flex: 1; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 10px; padding: 12px;">
+            <div style="font-weight: 600;">Art Exhibition Gala</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">3 unread messages</div>
+          </div>
+          <div style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px;">
+            <div style="font-weight: 600;">Music Festival 2026</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">No new messages</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Event Chat Hub -->
+      <div style="padding: 16px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px;">Step 2 — Event Chat Hub (Art Exhibition Gala)</div>
+
+        <!-- Customer Section -->
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 13px; font-weight: 700; color: #6366f1; margin-bottom: 8px;">CUSTOMERS</div>
+          <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: rgba(99,102,241,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">📢</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px;">Announcements</div>
+              <div style="font-size: 11px; color: #888;">You: "Doors open at 6pm!" — 142 👍 23 👎</div>
+            </div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">JD</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px;">Jane Doe</div>
+              <div style="font-size: 11px; color: #888;">"Is there wheelchair access?" — 2m ago</div>
+            </div>
+            <div style="background: #6366f1; color: white; border-radius: 10px; padding: 2px 7px; font-size: 11px;">1</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">AS</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px;">Alex Smith</div>
+              <div style="font-size: 11px; color: #888;">"Thanks for the info!" — 1h ago</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sponsor Section -->
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: #f59e0b; margin-bottom: 8px;">SPONSORS</div>
+          <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: rgba(245,158,11,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">📢</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px;">Sponsor Announcements</div>
+              <div style="font-size: 11px; color: #888;">You: "Booth setup starts Friday" — 5 👍 0 👎</div>
+            </div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">AC</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px;">Acme Corp</div>
+              <div style="font-size: 11px; color: #888;">"Can we get a larger booth?" — 30m ago</div>
+            </div>
+            <div style="background: #f59e0b; color: black; border-radius: 10px; padding: 2px 7px; font-size: 11px;">2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Customer / Sponsor View</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Customer Chat View</div>
+      <div class="mockup-body" style="padding: 16px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px;">Art Exhibition Gala</div>
+        <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 14px;">📢</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 13px;">Announcements</div>
+            <div style="font-size: 11px; color: #888;">"Doors open at 6pm!" — 5m ago</div>
+          </div>
+          <div style="background: #6366f1; color: white; border-radius: 10px; padding: 2px 7px; font-size: 11px;">1</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 14px;">💬</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 13px;">Chat with Organizer</div>
+            <div style="font-size: 11px; color: #888;">"Is there wheelchair access?" — 2m ago</div>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px; margin-top: 20px;">Music Festival 2026</div>
+        <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 14px;">📢</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 13px;">Announcements</div>
+            <div style="font-size: 11px; color: #888;">No announcements yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Sponsor Chat View</div>
+      <div class="mockup-body" style="padding: 16px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px;">Art Exhibition Gala</div>
+        <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 14px;">📢</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 13px;">Sponsor Announcements</div>
+            <div style="font-size: 11px; color: #888;">"Booth setup starts Friday" — 1h ago</div>
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 14px;">💬</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 13px;">Chat with Organizer</div>
+            <div style="font-size: 11px; color: #888;">"Can we get a larger booth?" — 30m ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Channel Permissions Summary</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="border-bottom: 2px solid rgba(255,255,255,0.2);">
+        <th style="text-align: left; padding: 8px;">Channel</th>
+        <th style="text-align: center; padding: 8px;">Organizer</th>
+        <th style="text-align: center; padding: 8px;">Customer</th>
+        <th style="text-align: center; padding: 8px;">Sponsor</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Customer Announcements</td>
+        <td style="text-align: center; padding: 8px;">✍️ Post</td>
+        <td style="text-align: center; padding: 8px;">👁️ Read + 👍👎</td>
+        <td style="text-align: center; padding: 8px;">—</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Sponsor Announcements</td>
+        <td style="text-align: center; padding: 8px;">✍️ Post</td>
+        <td style="text-align: center; padding: 8px;">—</td>
+        <td style="text-align: center; padding: 8px;">👁️ Read + 👍👎</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">Customer ↔ Organizer DM</td>
+        <td style="text-align: center; padding: 8px;">💬 Full</td>
+        <td style="text-align: center; padding: 8px;">💬 Full</td>
+        <td style="text-align: center; padding: 8px;">—</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;">Sponsor ↔ Organizer DM</td>
+        <td style="text-align: center; padding: 8px;">💬 Full</td>
+        <td style="text-align: center; padding: 8px;">—</td>
+        <td style="text-align: center; padding: 8px;">💬 Full</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

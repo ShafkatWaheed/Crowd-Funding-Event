@@ -1,0 +1,205 @@
+<h2>Customer 4th Tab: Tickets + Messages Combined</h2>
+<p class="subtitle">Keep 4 tabs. Merge messages into the Tickets tab for customers.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin: 0;">
+        <div class="mockup-header">Option A — Announcement Banner + Tickets</div>
+        <div class="mockup-body" style="padding: 0; max-height: 420px; overflow: hidden;">
+          <!-- Announcement Banner -->
+          <div style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); border-bottom: 1px solid rgba(99,102,241,0.2); padding: 12px 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <div style="font-size: 14px;">📢</div>
+              <div style="font-size: 13px; font-weight: 700; color: #a5b4fc;">Announcements</div>
+              <div style="background: #6366f1; color: white; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: auto;">2 new</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #c4b5fd;">
+              <div style="font-weight: 600; margin-bottom: 2px;">Art Exhibition Gala</div>
+              "Doors open at 6pm! VIP entrance on the left side." — 5m ago
+            </div>
+          </div>
+
+          <!-- DM indicator -->
+          <div style="padding: 8px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 13px;">💬</div>
+            <div style="font-size: 12px; color: #888;">1 unread message from organizer</div>
+            <div style="margin-left: auto; font-size: 11px; color: #6366f1; font-weight: 600;">View &rarr;</div>
+          </div>
+
+          <!-- Tickets List -->
+          <div style="padding: 12px 16px;">
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">My Tickets</div>
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">Art Exhibition Gala</div>
+                  <div style="font-size: 11px; color: #888; margin-top: 2px;">VIP Pass &bull; Apr 15, 2026</div>
+                </div>
+                <div style="background: rgba(34,197,94,0.15); color: #4ade80; font-size: 10px; padding: 2px 8px; border-radius: 6px;">Active</div>
+              </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <div style="font-weight: 600; font-size: 13px;">Music Festival 2026</div>
+                  <div style="font-size: 11px; color: #888; margin-top: 2px;">General &bull; May 20, 2026</div>
+                </div>
+                <div style="background: rgba(34,197,94,0.15); color: #4ade80; font-size: 10px; padding: 2px 8px; border-radius: 6px;">Active</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Announcement Banner on Top</h3>
+      <p>Collapsible announcement banner at the top shows latest post. DM indicator below it. Tickets list underneath. Tapping banner → full announcement channel. Tapping DM → opens chat.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Announcements always visible</li><li>Tickets remain primary focus</li><li>Minimal layout change</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Banner can push tickets down on small screens</li><li>Multiple events = stacked banners</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin: 0;">
+        <div class="mockup-header">Option B — Segmented Toggle: Tickets | Messages</div>
+        <div class="mockup-body" style="padding: 0; max-height: 420px; overflow: hidden;">
+          <!-- Segmented Control -->
+          <div style="padding: 12px 16px;">
+            <div style="display: flex; background: rgba(255,255,255,0.08); border-radius: 10px; padding: 3px;">
+              <div style="flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #888;">🎫 Tickets</div>
+              <div style="flex: 1; text-align: center; padding: 8px; background: #6366f1; border-radius: 8px; font-size: 13px; font-weight: 600; color: white; position: relative;">
+                💬 Messages
+                <span style="position: absolute; top: 2px; right: 8px; background: #ef4444; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">3</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages View (active) -->
+          <div style="padding: 0 16px 12px;">
+            <!-- Event group -->
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 8px;">Art Exhibition Gala</div>
+            <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 14px;">📢</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px;">Announcements</div>
+                <div style="font-size: 11px; color: #888;">"Doors open at 6pm!" — 5m ago</div>
+              </div>
+              <div style="background: #6366f1; color: white; border-radius: 10px; padding: 2px 7px; font-size: 11px;">2</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 14px;">💬</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px;">Chat with Organizer</div>
+                <div style="font-size: 11px; color: #888;">"Sure, we have ramp access" — 2m ago</div>
+              </div>
+              <div style="background: #6366f1; color: white; border-radius: 10px; padding: 2px 7px; font-size: 11px;">1</div>
+            </div>
+
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 8px;">Music Festival 2026</div>
+            <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 14px;">📢</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px;">Announcements</div>
+                <div style="font-size: 11px; color: #888;">No announcements yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Segmented Toggle</h3>
+      <p>Tab renamed to "Activity" or keeps "Tickets". Segmented control at top switches between Tickets view and Messages view. Badge on Messages segment shows unread count. Messages view grouped by event.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean separation — no clutter</li><li>Full screen for each view</li><li>Badge draws attention to messages</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Messages hidden behind one tap</li><li>User might miss announcements if they stay on Tickets</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin: 0;">
+        <div class="mockup-header">Option C — Unified Feed (Grouped by Event)</div>
+        <div class="mockup-body" style="padding: 0; max-height: 420px; overflow: hidden;">
+          <div style="padding: 12px 16px;">
+            <!-- Event 1 -->
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-weight: 700; font-size: 14px;">Art Exhibition Gala</div>
+                <div style="background: rgba(34,197,94,0.15); color: #4ade80; font-size: 10px; padding: 2px 8px; border-radius: 6px;">Apr 15</div>
+              </div>
+
+              <!-- Ticket row -->
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 8px; margin-bottom: 6px;">
+                <div style="font-size: 14px;">🎫</div>
+                <div style="flex: 1; font-size: 12px;">
+                  <span style="font-weight: 600;">VIP Pass</span>
+                  <span style="color: #888;"> &bull; Ticket #4821</span>
+                </div>
+                <div style="font-size: 11px; color: #6366f1;">View &rarr;</div>
+              </div>
+
+              <!-- Announcement row -->
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(99,102,241,0.08); border-radius: 8px; margin-bottom: 6px;">
+                <div style="font-size: 14px;">📢</div>
+                <div style="flex: 1; font-size: 12px;">
+                  <span style="font-weight: 600;">Announcements</span>
+                  <span style="color: #888;"> &bull; "Doors open at 6pm!"</span>
+                </div>
+                <div style="background: #6366f1; color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px;">2</div>
+              </div>
+
+              <!-- DM row -->
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 8px;">
+                <div style="font-size: 14px;">💬</div>
+                <div style="flex: 1; font-size: 12px;">
+                  <span style="font-weight: 600;">Organizer</span>
+                  <span style="color: #888;"> &bull; "Sure, we have ramps"</span>
+                </div>
+                <div style="background: #6366f1; color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px;">1</div>
+              </div>
+            </div>
+
+            <!-- Event 2 -->
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-weight: 700; font-size: 14px;">Music Festival 2026</div>
+                <div style="background: rgba(34,197,94,0.15); color: #4ade80; font-size: 10px; padding: 2px 8px; border-radius: 6px;">May 20</div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 8px; margin-bottom: 6px;">
+                <div style="font-size: 14px;">🎫</div>
+                <div style="flex: 1; font-size: 12px;">
+                  <span style="font-weight: 600;">General Admission</span>
+                  <span style="color: #888;"> &bull; Ticket #7103</span>
+                </div>
+                <div style="font-size: 11px; color: #6366f1;">View &rarr;</div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(99,102,241,0.08); border-radius: 8px;">
+                <div style="font-size: 14px;">📢</div>
+                <div style="flex: 1; font-size: 12px;">
+                  <span style="font-weight: 600;">Announcements</span>
+                  <span style="color: #888;"> &bull; No announcements yet</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Unified Event Cards</h3>
+      <p>Each event is a card showing: ticket(s), announcements, and DM — all in one place. Everything the customer has for that event, grouped together. Tab could be renamed "My Events" or "Activity".</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Everything in one glance per event</li><li>Natural grouping — ticket + comms together</li><li>Announcements always visible (no toggle)</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Cards get tall with multiple tickets</li><li>More complex UI to build</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

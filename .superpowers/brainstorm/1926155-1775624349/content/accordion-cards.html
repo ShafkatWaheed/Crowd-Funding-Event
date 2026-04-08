@@ -1,0 +1,240 @@
+<h2>Unified Event Cards — Accordion Expand</h2>
+<p class="subtitle">Tap any row to expand inline. "View All" navigates to full screen.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Customer Portal Tab — Interactive Preview</div>
+  <div class="mockup-body" style="padding: 12px; max-height: 700px; overflow-y: auto;">
+
+    <!-- ═══ LIVE EVENT — Announcements Expanded ═══ -->
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(239,68,68,0.06);">
+        <div>
+          <div style="font-weight: 700; font-size: 13px;">Art Exhibition Gala</div>
+          <div style="font-size: 10px; color: #888; margin-top: 1px;">The Grand Hall</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <div style="width: 5px; height: 5px; background: #ef4444; border-radius: 50%;"></div>
+          <span style="font-size: 10px; font-weight: 700; color: #ef4444;">LIVE</span>
+        </div>
+      </div>
+
+      <!-- 📢 Announcements — EXPANDED -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.04);">
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; background: rgba(99,102,241,0.06); cursor: pointer;">
+          <span style="font-size: 12px;">📢</span>
+          <span style="font-size: 11px; color: #a5b4fc; font-weight: 600; flex: 1;">Announcements</span>
+          <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">2</span>
+          <span style="font-size: 12px; color: #888;">▼</span>
+        </div>
+        <!-- Expanded content -->
+        <div style="padding: 8px 12px; background: rgba(99,102,241,0.03);">
+          <!-- Post 1 -->
+          <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="font-size: 10px; color: #a5b4fc; font-weight: 600;">Organizer</span>
+              <span style="font-size: 9px; color: #666;">2m ago</span>
+            </div>
+            <div style="font-size: 12px; color: #ddd; line-height: 1.4;">Doors open at 6pm! VIP entrance is on the left side of the building. See you there! 🎉</div>
+            <div style="display: flex; gap: 14px; margin-top: 6px;">
+              <div style="display: flex; align-items: center; gap: 3px; cursor: pointer;">
+                <span style="font-size: 13px;">👍</span>
+                <span style="font-size: 11px; color: #6366f1; font-weight: 500;">142</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px; cursor: pointer;">
+                <span style="font-size: 13px;">👎</span>
+                <span style="font-size: 11px; color: #888;">3</span>
+              </div>
+            </div>
+          </div>
+          <!-- Post 2 -->
+          <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="font-size: 10px; color: #a5b4fc; font-weight: 600;">Organizer</span>
+              <span style="font-size: 9px; color: #666;">1h ago</span>
+            </div>
+            <div style="font-size: 12px; color: #ddd; line-height: 1.4;">Parking is free at the West lot. Shuttles running every 10 min from Gate C.</div>
+            <div style="display: flex; gap: 14px; margin-top: 6px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span style="font-size: 13px;">👍</span>
+                <span style="font-size: 11px; color: #888;">89</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span style="font-size: 13px;">👎</span>
+                <span style="font-size: 11px; color: #888;">1</span>
+              </div>
+            </div>
+          </div>
+          <!-- View All link -->
+          <div style="text-align: center; padding: 4px 0;">
+            <span style="font-size: 11px; color: #6366f1; font-weight: 600; cursor: pointer;">View All Announcements →</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 💬 Chat — COLLAPSED -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 12px;">💬</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">Chat with Organizer</span>
+        <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">1</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+
+      <!-- 🎫 Ticket — COLLAPSED -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 12px;">🎫</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">VIP Pass — #4821</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+    </div>
+
+    <!-- ═══ UPCOMING EVENT — Chat Expanded ═══ -->
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px;">
+        <div>
+          <div style="font-weight: 700; font-size: 13px;">Music Festival 2026</div>
+          <div style="font-size: 10px; color: #888; margin-top: 1px;">Central Park</div>
+        </div>
+        <span style="font-size: 10px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: 5px;">In 43d</span>
+      </div>
+
+      <!-- 📢 Announcements — COLLAPSED -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 12px;">📢</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">Announcements</span>
+        <span style="font-size: 11px; color: #888;">No posts yet</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+
+      <!-- 💬 Chat — EXPANDED -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.04);">
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); cursor: pointer;">
+          <span style="font-size: 12px;">💬</span>
+          <span style="font-size: 11px; color: #ccc; font-weight: 600; flex: 1;">Chat with Organizer</span>
+          <span style="font-size: 12px; color: #888;">▼</span>
+        </div>
+        <!-- Recent messages -->
+        <div style="padding: 8px 12px; background: rgba(255,255,255,0.02);">
+          <!-- Their message -->
+          <div style="display: flex; margin-bottom: 6px;">
+            <div style="background: rgba(255,255,255,0.06); border-radius: 8px 8px 8px 2px; padding: 6px 10px; max-width: 75%;">
+              <div style="font-size: 11px; color: #ddd;">Is there a dress code for the VIP area?</div>
+              <div style="font-size: 9px; color: #666; text-align: right; margin-top: 2px;">You · 2h ago</div>
+            </div>
+          </div>
+          <!-- Organizer reply -->
+          <div style="display: flex; justify-content: flex-start; margin-bottom: 6px;">
+            <div style="background: rgba(99,102,241,0.12); border-radius: 8px 8px 2px 8px; padding: 6px 10px; max-width: 75%;">
+              <div style="font-size: 11px; color: #ddd;">Smart casual is fine! No flip-flops though 😄</div>
+              <div style="font-size: 9px; color: #666; text-align: right; margin-top: 2px;">Organizer · 1h ago</div>
+            </div>
+          </div>
+          <!-- Quick reply input -->
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <div style="flex: 1; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 7px 10px; font-size: 11px; color: #666;">Type a message...</div>
+            <div style="width: 30px; height: 30px; background: rgba(99,102,241,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 13px; color: #6366f1;">↑</span>
+            </div>
+          </div>
+          <!-- View All link -->
+          <div style="text-align: center; padding: 6px 0 2px;">
+            <span style="font-size: 11px; color: #6366f1; font-weight: 600; cursor: pointer;">View Full Chat →</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎫 Tickets — COLLAPSED -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 12px;">🎫</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7103</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 12px;">🎫</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">General — #7104</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+    </div>
+
+    <!-- ═══ THIRD EVENT — Ticket Expanded ═══ -->
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px;">
+        <div>
+          <div style="font-weight: 700; font-size: 13px;">Tech Meetup Spring</div>
+          <div style="font-size: 10px; color: #888;">Convention Center</div>
+        </div>
+        <span style="font-size: 10px; font-weight: 600; color: #22c55e; background: rgba(34,197,94,0.1); padding: 2px 6px; border-radius: 5px;">In 12d</span>
+      </div>
+
+      <!-- 📢 Collapsed -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 12px;">📢</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">Announcements</span>
+        <span style="background: #6366f1; color: white; font-size: 9px; padding: 1px 5px; border-radius: 8px;">1</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+
+      <!-- 💬 Collapsed -->
+      <div style="padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 12px;">💬</span>
+        <span style="font-size: 11px; color: #ccc; flex: 1;">Message Organizer</span>
+        <span style="font-size: 11px; color: #6366f1;">New →</span>
+        <span style="font-size: 12px; color: #888;">▶</span>
+      </div>
+
+      <!-- 🎫 Ticket — EXPANDED with QR -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.04);">
+        <div style="padding: 8px 12px; display: flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.04); cursor: pointer;">
+          <span style="font-size: 12px;">🎫</span>
+          <span style="font-size: 11px; color: #4ade80; font-weight: 600; flex: 1;">Early Bird — #3290</span>
+          <span style="font-size: 12px; color: #888;">▼</span>
+        </div>
+        <div style="padding: 12px; background: rgba(34,197,94,0.02); display: flex; flex-direction: column; align-items: center;">
+          <!-- QR Code placeholder -->
+          <div style="width: 140px; height: 140px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+            <div style="width: 120px; height: 120px; background: repeating-conic-gradient(#333 0% 25%, white 0% 50%) 50% / 12px 12px; border-radius: 4px;"></div>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: #ddd; letter-spacing: 1px;">TK-3290-XFGH</div>
+          <div style="font-size: 10px; color: #888; margin-top: 2px;">Early Bird · $45.00</div>
+          <!-- Actions -->
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 6px 14px; font-size: 11px; color: #a5b4fc; cursor: pointer;">Share</div>
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px 14px; font-size: 11px; color: #ccc; cursor: pointer;">Full Details →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 16px;">
+  <h3>Interaction Model</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="border-bottom: 2px solid rgba(255,255,255,0.2);">
+        <th style="text-align: left; padding: 8px;">Action</th>
+        <th style="text-align: left; padding: 8px;">Inline (no navigation)</th>
+        <th style="text-align: left; padding: 8px;">"View All" (navigates)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">📢 Announcements</td>
+        <td style="padding: 8px;">See last 3 posts, like/dislike</td>
+        <td style="padding: 8px;">Full announcement history</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 8px;">💬 Chat</td>
+        <td style="padding: 8px;">See last 3 messages, quick reply</td>
+        <td style="padding: 8px;">Full chat with typing indicator</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;">🎫 Ticket</td>
+        <td style="padding: 8px;">QR code, ticket code, share</td>
+        <td style="padding: 8px;">Full ticket detail + receipt</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

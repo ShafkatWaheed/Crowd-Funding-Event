@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal — Sheet + Full View</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a14; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 16px; }
+  h1 { font-size: 18px; text-align: center; margin-bottom: 2px; color: #f1f5f9; }
+  .sub { text-align: center; font-size: 11px; color: #64748b; margin-bottom: 6px; }
+  h2 { font-size: 15px; color: #a5b4fc; text-align: center; margin: 20px 0 10px; padding-top: 16px; border-top: 1px solid #1e1e3a; }
+
+  .row-phones { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
+
+  .phone { width: 310px; background: #0f0f1e; border: 2px solid #1e1e3a; border-radius: 22px; overflow: hidden; flex-shrink: 0; position: relative; }
+  .phone-label { background: #12122a; padding: 8px 12px; border-bottom: 1px solid #1e1e3a; display: flex; justify-content: space-between; align-items: center; }
+  .phone-label .role { font-size: 11px; font-weight: 700; }
+  .phone-label .mode { font-size: 9px; padding: 2px 7px; border-radius: 8px; }
+  .mode-sheet { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .mode-full { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+  .phone-body { padding: 6px; max-height: 520px; overflow-y: auto; }
+  .phone-body::-webkit-scrollbar { width: 2px; }
+  .phone-body::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+  /* Sheet chrome */
+  .sheet-bg { background: rgba(0,0,0,0.45); padding: 30px 6px 0; border-radius: 20px 20px 0 0; }
+  .sheet-inner { background: #13132a; border-radius: 16px 16px 0 0; }
+  .sheet-handle { display: flex; justify-content: center; padding: 7px 0 3px; }
+  .sheet-handle div { width: 30px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+  .sheet-topbar { display: flex; justify-content: space-between; align-items: center; padding: 4px 12px 8px; }
+  .sheet-topbar .title { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+  .full-view-btn { font-size: 9px; color: #6366f1; font-weight: 600; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+  .sheet-body { padding: 4px 8px 8px; max-height: 380px; overflow-y: auto; }
+  .sheet-body::-webkit-scrollbar { width: 2px; }
+  .sheet-body::-webkit-scrollbar-thumb { background: #333; }
+
+  /* Cards */
+  .card { background: #151528; border: 1px solid #1e1e3a; border-radius: 10px; margin-bottom: 7px; overflow: hidden; }
+  .card.live { border-color: rgba(239,68,68,0.25); }
+  .card.dim { opacity: 0.5; }
+  .card-head { padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; }
+  .card-head.live-bg { background: rgba(239,68,68,0.04); }
+  .card-head .t { font-weight: 700; font-size: 11px; }
+  .card-head .v { font-size: 9px; color: #64748b; margin-top: 1px; }
+  .live-dot { display: flex; align-items: center; gap: 3px; }
+  .live-dot::before { content:''; width:4px; height:4px; background:#ef4444; border-radius:50%; animation:pulse 1.5s infinite; }
+  .live-dot span { font-size: 9px; font-weight: 700; color: #ef4444; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .sb { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .sb-up { color: #f59e0b; background: rgba(245,158,11,0.1); }
+  .sb-done { color: #64748b; background: rgba(100,116,139,0.1); }
+
+  /* Rows */
+  .r { padding: 5px 10px; border-top: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .r:hover { background: rgba(255,255,255,0.015); }
+  .r .i { font-size: 11px; width: 14px; text-align: center; }
+  .r .l { font-size: 10px; color: #cbd5e1; flex: 1; }
+  .r .l.b { font-weight: 600; }
+  .r .u { background: #6366f1; color: white; font-size: 8px; padding: 1px 4px; border-radius: 6px; }
+  .r .a { font-size: 9px; color: #475569; }
+  .r .m { font-size: 9px; color: #475569; }
+  .r .nl { font-size: 9px; color: #6366f1; font-weight: 600; }
+  .r.scanned { opacity: 0.45; }
+  .r.scanned .l { text-decoration: line-through; }
+
+  /* Expanded head */
+  .eh { padding: 5px 10px; border-top: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 5px; background: rgba(99,102,241,0.03); }
+  .eh .l { font-weight: 600; font-size: 10px; color: #a5b4fc; flex: 1; }
+  .eh.green { background: rgba(34,197,94,0.03); }
+  .eh.green .l { color: #4ade80; }
+  .eh.amber { background: rgba(245,158,11,0.03); }
+  .eh.amber .l { color: #f59e0b; }
+
+  /* Expanded content */
+  .ex { padding: 6px 10px; background: rgba(255,255,255,0.01); }
+
+  /* Posts */
+  .post { background: rgba(255,255,255,0.025); border-radius: 6px; padding: 5px 8px; margin-bottom: 4px; }
+  .post-h { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .post-h .au { font-size: 9px; color: #a5b4fc; font-weight: 600; }
+  .post-h .ti { font-size: 8px; color: #475569; }
+  .post-b { font-size: 10px; color: #d1d5db; line-height: 1.3; }
+  .post-rx { display: flex; gap: 10px; margin-top: 3px; font-size: 10px; color: #64748b; }
+  .post-rx .ac { color: #6366f1; }
+
+  /* Messages */
+  .mg { margin-bottom: 3px; display: flex; }
+  .mg.mine { justify-content: flex-end; }
+  .mb { max-width: 80%; border-radius: 6px; padding: 4px 7px; font-size: 10px; color: #d1d5db; }
+  .mb.th { background: rgba(255,255,255,0.04); border-bottom-left-radius: 2px; }
+  .mb.mi { background: rgba(99,102,241,0.1); border-bottom-right-radius: 2px; }
+  .mm { font-size: 7px; color: #475569; text-align: right; margin-top: 1px; }
+
+  /* Reply bar */
+  .rb { display: flex; gap: 4px; margin-top: 4px; }
+  .rb input { flex:1; background: rgba(255,255,255,0.04); border: 1px solid #1e1e3a; border-radius: 6px; padding: 5px 7px; font-size: 9px; color: #94a3b8; outline: none; }
+  .rb .s { width: 22px; height: 22px; background: rgba(99,102,241,0.12); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #6366f1; border: none; cursor: pointer; }
+
+  /* QR */
+  .qr-area { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; }
+  .qr-box { width: 90px; height: 90px; background: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+  .qr-p { width: 74px; height: 74px; background: repeating-conic-gradient(#222 0% 25%, white 0% 50%) 50% / 8px 8px; border-radius: 2px; }
+  .tk-c { font-size: 10px; font-weight: 600; color: #e2e8f0; letter-spacing: 0.5px; }
+  .tk-d { font-size: 9px; color: #64748b; margin-top: 1px; }
+  .tk-acts { display: flex; gap: 6px; margin-top: 6px; }
+  .tk-acts .btn { padding: 4px 10px; border-radius: 6px; font-size: 9px; cursor: pointer; border: none; }
+  .btn-sh { background: rgba(99,102,241,0.1); color: #a5b4fc; }
+  .btn-fd { background: rgba(255,255,255,0.04); color: #94a3b8; }
+
+  .va { text-align: center; padding: 3px 0 1px; }
+  .va a { font-size: 9px; color: #6366f1; font-weight: 600; cursor: pointer; text-decoration: none; }
+
+  /* DM list (organizer) */
+  .dm { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+  .dm-av { width: 22px; height: 22px; background: rgba(255,255,255,0.06); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: #94a3b8; flex-shrink: 0; }
+  .dm-c { flex: 1; min-width: 0; }
+  .dm-n { font-size: 10px; font-weight: 600; color: #cbd5e1; }
+  .dm-p { font-size: 9px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dm-t { font-size: 8px; color: #475569; flex-shrink: 0; }
+
+  /* Scan button */
+  .scan { padding: 5px 10px; border-top: 1px solid rgba(255,255,255,0.03); display: flex; align-items: center; gap: 5px; }
+  .scan-btn { background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.12); border-radius: 6px; padding: 4px 10px; font-size: 10px; color: #4ade80; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .scan-count { font-size: 9px; color: #4ade80; margin-left: auto; }
+
+  /* Bid row */
+  .bid-s { font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: 600; }
+  .bid-ok { background: rgba(34,197,94,0.1); color: #4ade80; }
+  .bid-pend { background: rgba(245,158,11,0.1); color: #f59e0b; }
+
+  /* Bottom nav */
+  .bnav { display: flex; justify-content: space-around; padding: 7px 4px; background: #0c0c1c; border-top: 1px solid #1e1e3a; }
+  .ni { text-align: center; font-size: 8px; color: #475569; }
+  .ni.act { color: #6366f1; }
+  .ni .ico { font-size: 14px; margin-bottom: 1px; position: relative; display: inline-block; }
+  .ni .bdg { position: absolute; top: -3px; right: -6px; background: #ef4444; color: white; font-size: 6px; padding: 0 3px; border-radius: 5px; }
+
+  /* Full view navigate indicator */
+  .nav-arrow { font-size: 9px; color: #6366f1; font-weight: 600; }
+
+  /* Section label */
+  .section-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; padding: 6px 10px 3px; }
+
+  /* Compose bar */
+  .compose { display: flex; gap: 4px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.06); }
+  .compose input { flex:1; background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.12); border-radius: 6px; padding: 5px 7px; font-size: 9px; color: #a5b4fc; outline: none; }
+  .compose input::placeholder { color: rgba(165,180,252,0.4); }
+  .compose .s { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+</style>
+</head>
+<body>
+
+<h1>Portal — Sheet Mode + Full View Mode</h1>
+<p class="sub">Tap Portal tab → sheet slides up (quick access). "Full View" → switches to full tab (deep dive).</p>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>👤 Customer</h2>
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="row-phones">
+
+<!-- SHEET MODE -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#a5b4fc;">👤 Customer</span>
+    <span class="mode mode-sheet">Sheet Mode</span>
+  </div>
+  <div class="phone-body">
+    <div class="sheet-bg">
+      <div class="sheet-inner">
+        <div class="sheet-handle"><div></div></div>
+        <div class="sheet-topbar">
+          <span class="title">My Events</span>
+          <span class="full-view-btn">Full View ↗</span>
+        </div>
+        <div class="sheet-body">
+
+          <!-- Live event — announcements expanded -->
+          <div class="card live">
+            <div class="card-head live-bg">
+              <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+              <div class="live-dot"><span>LIVE</span></div>
+            </div>
+            <div class="eh"><span class="i">📢</span><span class="l">Announcements</span><span class="u">2</span><span class="a">▼</span></div>
+            <div class="ex">
+              <div class="post">
+                <div class="post-h"><span class="au">Organizer</span><span class="ti">2m</span></div>
+                <div class="post-b">Doors open at 6pm! VIP on the left 🎉</div>
+                <div class="post-rx"><span class="ac">👍 142</span><span>👎 3</span></div>
+              </div>
+              <div class="post">
+                <div class="post-h"><span class="au">Organizer</span><span class="ti">1h</span></div>
+                <div class="post-b">Free parking at West lot.</div>
+                <div class="post-rx"><span>👍 89</span><span>👎 1</span></div>
+              </div>
+              <div class="va"><a>View All Announcements →</a></div>
+            </div>
+            <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="u">1</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #4821</span><span class="a">▶</span></div>
+            <div class="r scanned"><span class="i">🎫</span><span class="l">Early Bird — #4820 ✓</span><span class="m">Scanned</span></div>
+          </div>
+
+          <!-- Upcoming — collapsed -->
+          <div class="card">
+            <div class="card-head">
+              <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+              <span class="sb sb-up">In 43d</span>
+            </div>
+            <div class="r"><span class="i">📢</span><span class="l">Announcements</span><span class="m">1 post</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">🎫</span><span class="l">General — #7103</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">🎫</span><span class="l">General — #7104</span><span class="a">▶</span></div>
+          </div>
+
+          <!-- Completed -->
+          <div class="card dim">
+            <div class="card-head">
+              <div><div class="t">Tech Meetup</div><div class="v">Convention Center</div></div>
+              <span class="sb sb-done">Completed</span>
+            </div>
+            <div class="r scanned"><span class="i">🎫</span><span class="l">Early Bird — #3290 ✓</span><span class="m">Scanned</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯<span class="bdg">3</span></div>Portal</div>
+  </div>
+</div>
+
+<!-- FULL VIEW MODE -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#4ade80;">👤 Customer</span>
+    <span class="mode mode-full">Full View</span>
+  </div>
+  <div class="phone-body">
+
+    <!-- Live event — Chat tapped → navigates to full chat -->
+    <div class="card live">
+      <div class="card-head live-bg">
+        <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+        <div class="live-dot"><span>LIVE</span></div>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Announcements</span><span class="u">2</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="u">1</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #4821</span><span class="nav-arrow">Open →</span></div>
+      <div class="r scanned"><span class="i">🎫</span><span class="l">Early Bird — #4820 ✓</span><span class="m">Scanned</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+        <span class="sb sb-up">In 43d</span>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Announcements</span><span class="m">1 post</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🎫</span><span class="l">General — #7103</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🎫</span><span class="l">General — #7104</span><span class="nav-arrow">Open →</span></div>
+    </div>
+
+    <div class="card dim">
+      <div class="card-head">
+        <div><div class="t">Tech Meetup</div><div class="v">Convention Center</div></div>
+        <span class="sb sb-done">Completed</span>
+      </div>
+      <div class="r scanned"><span class="i">🎫</span><span class="l">Early Bird — #3290 ✓</span><span class="m">Scanned</span></div>
+    </div>
+
+    <div style="text-align:center; padding: 8px; font-size: 9px; color: #475569;">
+      Each row taps → full screen<br>
+      (Announcement page, Chat page, Ticket detail)
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯</div>Portal</div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>🎪 Organizer</h2>
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="row-phones">
+
+<!-- SHEET MODE -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#a5b4fc;">🎪 Organizer</span>
+    <span class="mode mode-sheet">Sheet Mode</span>
+  </div>
+  <div class="phone-body">
+    <div class="sheet-bg">
+      <div class="sheet-inner">
+        <div class="sheet-handle"><div></div></div>
+        <div class="sheet-topbar">
+          <span class="title">My Events</span>
+          <span class="full-view-btn">Full View ↗</span>
+        </div>
+        <div class="sheet-body">
+
+          <!-- Live event — DMs expanded (top 5) -->
+          <div class="card live">
+            <div class="card-head live-bg">
+              <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+              <div class="live-dot"><span>LIVE</span></div>
+            </div>
+            <div class="r"><span class="i">📢</span><span class="l">Customer Announcements</span><span class="m">Post</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="m">Post</span><span class="a">▶</span></div>
+
+            <div class="eh"><span class="i">💬</span><span class="l">Customer Messages</span><span class="u">3</span><span class="a">▼</span></div>
+            <div class="ex">
+              <div class="dm">
+                <div class="dm-av">JD</div>
+                <div class="dm-c"><div class="dm-n">Jane Doe</div><div class="dm-p">Wheelchair access at Gate B?</div></div>
+                <span class="u">1</span><span class="dm-t">2m</span>
+              </div>
+              <div class="dm">
+                <div class="dm-av">AS</div>
+                <div class="dm-c"><div class="dm-n">Alex Smith</div><div class="dm-p">Thanks for the parking info!</div></div>
+                <span class="u">1</span><span class="dm-t">5m</span>
+              </div>
+              <div class="dm">
+                <div class="dm-av">MK</div>
+                <div class="dm-c"><div class="dm-n">Maria Kim</div><div class="dm-p">Can I bring my camera?</div></div>
+                <span class="u">1</span><span class="dm-t">12m</span>
+              </div>
+              <div class="dm">
+                <div class="dm-av">TJ</div>
+                <div class="dm-c"><div class="dm-n">Tom Johnson</div><div class="dm-p">Great event! 👏</div></div>
+                <span class="dm-t">30m</span>
+              </div>
+              <div class="dm">
+                <div class="dm-av">LW</div>
+                <div class="dm-c"><div class="dm-n">Lisa Wong</div><div class="dm-p">Where's coat check?</div></div>
+                <span class="dm-t">1h</span>
+              </div>
+              <div class="va"><a>View All Conversations →</a></div>
+            </div>
+
+            <div class="scan">
+              <span class="i">📷</span>
+              <span class="scan-btn">Scan Tickets</span>
+              <span class="scan-count">142 / 200</span>
+            </div>
+          </div>
+
+          <!-- Upcoming — collapsed -->
+          <div class="card">
+            <div class="card-head">
+              <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+              <span class="sb sb-up">In 43d</span>
+            </div>
+            <div class="r"><span class="i">📢</span><span class="l">Customer Announcements</span><span class="u">0</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">💬</span><span class="l">Customer Messages</span><span class="u">2</span><span class="a">▶</span></div>
+            <div class="scan">
+              <span class="i">📷</span>
+              <span class="scan-btn">Scan Tickets</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯<span class="bdg">5</span></div>Portal</div>
+  </div>
+</div>
+
+<!-- FULL VIEW -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#4ade80;">🎪 Organizer</span>
+    <span class="mode mode-full">Full View</span>
+  </div>
+  <div class="phone-body">
+
+    <div class="card live">
+      <div class="card-head live-bg">
+        <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+        <div class="live-dot"><span>LIVE</span></div>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Customer Announcements</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">All Conversations (23)</span><span class="u">3</span><span class="nav-arrow">Open →</span></div>
+      <div class="scan">
+        <span class="i">📷</span>
+        <span class="scan-btn">Scan Tickets</span>
+        <span class="scan-count">142 / 200</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+        <span class="sb sb-up">In 43d</span>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Customer Announcements</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">All Conversations (8)</span><span class="u">2</span><span class="nav-arrow">Open →</span></div>
+      <div class="scan">
+        <span class="i">📷</span>
+        <span class="scan-btn">Scan Tickets</span>
+      </div>
+    </div>
+
+    <div style="text-align:center; padding: 8px; font-size: 9px; color: #475569;">
+      "All Conversations" → ConversationsScreen<br>
+      with full DM list for that event
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯</div>Portal</div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>💼 Sponsor</h2>
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="row-phones">
+
+<!-- SHEET MODE -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#a5b4fc;">💼 Sponsor</span>
+    <span class="mode mode-sheet">Sheet Mode</span>
+  </div>
+  <div class="phone-body">
+    <div class="sheet-bg">
+      <div class="sheet-inner">
+        <div class="sheet-handle"><div></div></div>
+        <div class="sheet-topbar">
+          <span class="title">My Events</span>
+          <span class="full-view-btn">Full View ↗</span>
+        </div>
+        <div class="sheet-body">
+
+          <!-- Event 1 — chat expanded -->
+          <div class="card live">
+            <div class="card-head live-bg">
+              <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+              <div class="live-dot"><span>LIVE</span></div>
+            </div>
+            <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="u">1</span><span class="a">▶</span></div>
+
+            <!-- Chat expanded -->
+            <div class="eh"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="a">▼</span></div>
+            <div class="ex">
+              <div class="mg"><div class="mb th">Our booth banner is 3m wide, will it fit?<div class="mm">You · 1h</div></div></div>
+              <div class="mg"><div class="mb mi">Yes, max width is 4m. You're good!<div class="mm">Organizer · 45m</div></div></div>
+              <div class="rb"><input placeholder="Reply..."><button class="s">↑</button></div>
+              <div class="va"><a>Full Chat →</a></div>
+            </div>
+
+            <!-- Bid status -->
+            <div class="r"><span class="i">🏷️</span><span class="l">Gold Sponsor</span><span class="bid-s bid-ok">Accepted ✓</span></div>
+
+            <!-- Tickets -->
+            <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #5501</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #5502</span><span class="a">▶</span></div>
+          </div>
+
+          <!-- Event 2 — collapsed -->
+          <div class="card">
+            <div class="card-head">
+              <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+              <span class="sb sb-up">In 43d</span>
+            </div>
+            <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="m">No posts</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="a">▶</span></div>
+            <div class="r"><span class="i">🏷️</span><span class="l">Silver Sponsor</span><span class="bid-s bid-pend">Pending</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯<span class="bdg">1</span></div>Portal</div>
+  </div>
+</div>
+
+<!-- FULL VIEW -->
+<div class="phone">
+  <div class="phone-label">
+    <span class="role" style="color:#4ade80;">💼 Sponsor</span>
+    <span class="mode mode-full">Full View</span>
+  </div>
+  <div class="phone-body">
+
+    <div class="card live">
+      <div class="card-head live-bg">
+        <div><div class="t">Art Exhibition Gala</div><div class="v">The Grand Hall</div></div>
+        <div class="live-dot"><span>LIVE</span></div>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="u">1</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🏷️</span><span class="l">Gold Sponsor</span><span class="bid-s bid-ok">Accepted ✓</span></div>
+      <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #5501</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🎫</span><span class="l">VIP Pass — #5502</span><span class="nav-arrow">Open →</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><div class="t">Music Festival 2026</div><div class="v">Central Park</div></div>
+        <span class="sb sb-up">In 43d</span>
+      </div>
+      <div class="r"><span class="i">📢</span><span class="l">Sponsor Announcements</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">💬</span><span class="l">Chat with Organizer</span><span class="nav-arrow">Open →</span></div>
+      <div class="r"><span class="i">🏷️</span><span class="l">Silver Sponsor</span><span class="bid-s bid-pend">Pending</span></div>
+    </div>
+
+    <div style="text-align:center; padding: 8px; font-size: 9px; color: #475569;">
+      Each row taps → full screen
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="ni"><div class="ico">🏠</div>Home</div>
+    <div class="ni"><div class="ico">🧭</div>Explore</div>
+    <div class="ni"><div class="ico">📊</div>Manage</div>
+    <div class="ni act"><div class="ico">🎯</div>Portal</div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

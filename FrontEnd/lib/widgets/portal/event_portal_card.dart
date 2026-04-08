@@ -246,24 +246,72 @@ class _EventPortalCardState extends State<EventPortalCard> {
   // ── Organizer: Customer Conversations ──────────────────
 
   Widget _organizerConversationsRow(BuildContext context) {
-    return _collapsedRow(
-      context,
-      icon: Icons.forum_rounded,
-      label: 'Customer Messages',
-      onTap: () => context.push('/chat/organizer-hub/${card.eventId}'),
-      showNavArrow: true,
+    if (inlineMode && _isExpanded('org_messages')) {
+      return AnimatedSize(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topCenter,
+        child: _expandedSection(
+          context,
+          key: 'org_messages',
+          icon: Icons.forum_rounded,
+          label: 'Customer Messages',
+          color: AppTheme.accentColor,
+          child: _OrganizerDmList(
+            eventId: card.eventId,
+            onViewAll: () => context.push('/chat/organizer-hub/${card.eventId}'),
+          ),
+        ),
+      );
+    }
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: _collapsedRow(
+        context,
+        icon: Icons.forum_rounded,
+        label: 'Customer Messages',
+        onTap: inlineMode
+            ? () => onToggleExpand?.call(_key('org_messages'))
+            : () => context.push('/chat/organizer-hub/${card.eventId}'),
+        showNavArrow: !inlineMode,
+      ),
     );
   }
 
   // ── Organizer: Scanner ────────────────────────────────
 
   Widget _scannerRow(BuildContext context) {
-    return _collapsedRow(
-      context,
-      icon: Icons.qr_code_scanner_rounded,
-      label: 'Scan Tickets',
+    return InkWell(
       onTap: () => context.push('/events/${card.eventId}/scanner'),
-      showNavArrow: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withValues(alpha: 0.08),
+                border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.15)),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.qr_code_scanner_rounded, size: 14, color: AppTheme.successColor),
+                  const SizedBox(width: 5),
+                  Text('Scan Tickets',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -799,5 +847,135 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
         ),
       ),
     );
+  }
+}
+
+// ── Organizer: inline DM list (top 5) ───────────────────
+
+class _OrganizerDmList extends StatefulWidget {
+  final int eventId;
+  final VoidCallback onViewAll;
+
+  const _OrganizerDmList({required this.eventId, required this.onViewAll});
+
+  @override
+  State<_OrganizerDmList> createState() => _OrganizerDmListState();
+}
+
+class _OrganizerDmListState extends State<_OrganizerDmList> {
+  List<DmConversation> _conversations = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final convs = await context
+          .read<ChatFirebaseProvider>()
+          .getEventConversations(widget.eventId, typeFilter: 'customer');
+      if (mounted) {
+        setState(() {
+          _conversations = convs.take(5).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(8),
+        child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_conversations.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Text('No customer messages yet',
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+          )
+        else
+          ..._conversations.map((conv) => _dmItem(context, conv)),
+        InkWell(
+          onTap: widget.onViewAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text('View All Conversations →',
+                style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dmItem(BuildContext context, DmConversation conv) {
+    final initial = (conv.participantName ?? '?')[0].toUpperCase();
+    return InkWell(
+      onTap: () {
+        final name = conv.participantName ?? 'Customer';
+        context.push('/chat/dm/${conv.conversationId}?name=${Uri.encodeComponent(name)}&writable=${conv.isOpen}');
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
+              child: Text(initial,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(conv.participantName ?? 'Customer',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                  if (conv.lastMessageText != null)
+                    Text(conv.lastMessageText!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context))),
+                ],
+              ),
+            ),
+            if (conv.unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),
+                child: Text('${conv.unreadCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600)),
+              ),
+            if (conv.lastMessageAt != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(_timeAgo(conv.lastMessageAt!),
+                    style: TextStyle(fontSize: 8, color: AppTheme.textSecondaryOf(context))),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _timeAgo(int ms) {
+    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true));
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${diff.inDays}d';
   }
 }

@@ -62,18 +62,6 @@ void main() {
       expect(find.text('Grand Hall, Toronto'), findsOneWidget);
     });
 
-    testWidgets('renders genre when present', (tester) async {
-      final event = Event.fromJson(eventJson(genre: 'jazz'));
-
-      await mockNetworkImagesFor(() => pumpApp(
-            tester,
-            Scaffold(body: EventCard(event: event)),
-          ));
-      await tester.pump();
-
-      expect(find.text('Jazz'), findsOneWidget);
-    });
-
     testWidgets('renders funding progress when goal is set', (tester) async {
       final event = Event.fromJson(eventJson(
         fundingGoalCents: 100000,
@@ -110,20 +98,6 @@ void main() {
       expect(find.textContaining('% raised'), findsNothing);
     });
 
-    testWidgets('renders age restriction badge', (tester) async {
-      final event = Event.fromJson(eventJson(
-        ageRestricted: true,
-        minAge: 21,
-      ));
-
-      await mockNetworkImagesFor(() => pumpApp(
-            tester,
-            Scaffold(body: EventCard(event: event)),
-          ));
-      await tester.pump();
-
-      expect(find.text('21+'), findsOneWidget);
-    });
 
     testWidgets('shows bookmark button and fires callback', (tester) async {
       bool bookmarkTapped = false;

@@ -273,6 +273,14 @@ async def create_pledge(
         pass
 
     logger.info("Pledge created", extra={"event_id": event_id, "user_id": user.id, "pledge_id": pledge.id, "amount_cents": amount_cents})
+
+    # Add pledger to customer announcement channel (idempotent)
+    try:
+        from app.services.chat import channel_service
+        await channel_service.add_member(db, event_id=event_id, user_id=user.id, channel_type="customer")
+    except Exception:
+        logger.debug("Could not add pledger to chat channel", extra={"event_id": event_id, "user_id": user.id})
+
     return pledge
 
 
@@ -353,7 +361,16 @@ async def refund_pledges_for_user_event(
 ) -> int:
     """Mark all pledged fundings for this user+event as refunded. Returns count."""
     log_step(logger, "Refunding pledges for user", event_id=event_id, user_id=user_id)
-    return await funding_repo.bulk_refund_user_event(db, event_id, user_id)
+    count = await funding_repo.bulk_refund_user_event(db, event_id, user_id)
+
+    # Revoke chat access if no remaining financial ties
+    try:
+        from app.services.chat import conversation_service
+        await conversation_service.revoke_access(db, user_id=user_id, event_id=event_id)
+    except Exception:
+        logger.debug("Could not revoke chat access after pledge refund", extra={"user_id": user_id, "event_id": event_id})
+
+    return count
 
 
 async def list_pledges_by_user(

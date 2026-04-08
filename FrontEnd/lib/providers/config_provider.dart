@@ -15,6 +15,7 @@ class ConfigProvider extends ChangeNotifier {
   bool featureSponsorsEnabled = true;
   bool featureCommunityRulesEnabled = true;
   bool offlineTicketAutoDownloadEnabled = false;
+  int completedEventChatRetentionDays = 7;
   bool stripeEnabled = false;
 
   bool _loaded = false;
@@ -32,6 +33,7 @@ class ConfigProvider extends ChangeNotifier {
       featureSponsorsEnabled = config.featureSponsorsEnabled;
       featureCommunityRulesEnabled = config.featureCommunityRulesEnabled;
       offlineTicketAutoDownloadEnabled = config.offlineTicketAutoDownloadEnabled;
+      completedEventChatRetentionDays = config.completedEventChatRetentionDays;
       _loaded = true;
       notifyListeners();
     } catch (_) {

@@ -111,12 +111,16 @@ class RegistrationRepository(BaseRepository[Registration]):
     #  List / get helpers
     # ═══════════════════════════════════════════════════════════════════
 
-    async def list_by_event(self, db: AsyncSession, event_id: int) -> list[Registration]:
-        """List all registrations for an event, ordered by created_at."""
+    async def list_by_event(
+        self, db: AsyncSession, event_id: int, *, offset: int = 0, limit: int = 20,
+    ) -> list[Registration]:
+        """List registrations for an event, ordered by created_at, with pagination."""
         q = (
             select(Registration)
             .where(Registration.event_id == event_id)
             .order_by(Registration.created_at.asc())
+            .offset(offset)
+            .limit(limit)
         )
         result = await db.execute(q)
         return list(result.scalars().all())

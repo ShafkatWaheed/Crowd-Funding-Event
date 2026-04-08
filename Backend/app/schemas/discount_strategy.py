@@ -1,18 +1,18 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DiscountStrategyCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     discount_type: str  # 'pledge_percent' | 'ticket_percent' | 'fixed_cents'
-    value: int
+    value: int = Field(..., ge=1)
     target: str = "all"  # 'all' | 'pledgers' | 'non_pledgers'
 
 
 class DiscountStrategyUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
     discount_type: str | None = None
-    value: int | None = None
+    value: int | None = Field(None, ge=1)
     target: str | None = None
 
 

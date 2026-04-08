@@ -6,6 +6,7 @@ import '../../../models/sponsor.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../../event/create_event/create_event_actions.dart' show confirmDelete;
 
 class PrerequisiteSheet extends StatefulWidget {
   final int eventId;
@@ -143,6 +144,8 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
   }
 
   Future<void> _delete(int prereqId) async {
+    if (!await confirmDelete(context, 'requirement')) return;
+    if (!mounted) return;
     try {
       final api = context.read<SponsorProvider>();
       await api.deletePrerequisite(widget.eventId, widget.categoryId, prereqId);

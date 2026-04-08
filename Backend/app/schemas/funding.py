@@ -1,17 +1,17 @@
 # Funding request/response schemas.
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TierReservation(BaseModel):
     tier_id: int
-    spots: int  # >= 1
+    spots: int = Field(..., ge=1)
 
 
 class PledgeBody(BaseModel):
-    amount_cents: int
-    reserved_spots: int = 0
+    amount_cents: int = Field(..., ge=1)
+    reserved_spots: int = Field(0, ge=0)
     tier_reservations: list[TierReservation] | None = None
 
 

@@ -420,6 +420,13 @@ async def process_ticket_refund(ctx: dict, ticket_sale_id: int) -> None:
                     )
                     logger.info("Ticket %d: auto-unregistered user %d from event %d after full refund", ticket_sale_id, sale.user_id, sale.event_id)
 
+            # Revoke chat access if no remaining financial ties
+            try:
+                from app.services.chat import conversation_service
+                await conversation_service.revoke_access(db, user_id=sale.user_id, event_id=sale.event_id)
+            except Exception:
+                logger.debug("Could not revoke chat access after ticket refund", extra={"user_id": sale.user_id, "event_id": sale.event_id})
+
             await db.commit()
             logger.info("Ticket %d: refunded (%d cents, txn=%s)", ticket_sale_id, sale.amount_paid_cents, result.transaction_id)
 
@@ -966,6 +973,18 @@ async def transition_event_status(ctx: dict, event_id: int, trigger_field: str, 
 
             prev_status = event.status
             await auto_transition_status(db, event)
+
+            # Close chat channels/conversations when event completes or is cancelled
+            if event.status != prev_status and event.status in (
+                EventStatus.completed, EventStatus.cancelled
+            ):
+                try:
+                    from app.services.chat import channel_service, conversation_service
+                    await channel_service.close_event_channels(db, event_id=event_id)
+                    await conversation_service.close_event_conversations(db, event_id=event_id)
+                except Exception:
+                    logger.debug("Could not close chat for event %d", event_id)
+
             await db.commit()
 
             logger.info(

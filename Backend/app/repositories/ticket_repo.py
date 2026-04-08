@@ -839,5 +839,17 @@ class TicketRepository(BaseRepository[TicketSale]):
         return {r.event_id: int(r.cnt) for r in rows}
 
 
+    async def get_ticket_holder_user_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        """Return distinct user IDs who hold active tickets for an event."""
+        inactive = {TicketSaleStatus.refunded, TicketSaleStatus.cancelled}
+        q = select(func.distinct(TicketSale.user_id)).where(
+            TicketSale.event_id == event_id,
+            TicketSale.status.not_in(inactive),
+        )
+        return list((await db.execute(q)).scalars().all())
+
+
 # Module-level singleton
 ticket_repo = TicketRepository()

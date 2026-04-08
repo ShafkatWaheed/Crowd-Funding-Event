@@ -303,7 +303,10 @@ class _CreateVenueScreenState extends State<CreateVenueScreen> {
                       keyboardType: TextInputType.number,
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Required';
-                        if (int.tryParse(v) == null) return 'Enter a number';
+                        final n = int.tryParse(v);
+                        if (n == null) return 'Enter a number';
+                        if (n < 1) return 'Must be at least 1';
+                        if (n > 1000000) return 'Maximum 1,000,000';
                         return null;
                       },
                     ),

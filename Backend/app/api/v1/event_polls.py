@@ -67,7 +67,6 @@ async def create_poll(
 
     poll = await poll_service.create_poll(db, event, current_user.id, body)
     await db.commit()
-    await db.refresh(poll)
 
     # Notify all registrants asynchronously
     try:
@@ -93,7 +92,6 @@ async def cast_vote(
         raise HTTPException(status_code=404, detail="Poll not found for this event")
     await poll_service.vote(db, poll, current_user.id, body)
     await db.commit()
-    await db.refresh(poll)
     tally = await event_poll_repo.get_tally(db, poll.id)
     vote = await event_poll_repo.get_vote(db, poll.id, current_user.id)
     return poll_service.build_poll_response(poll, tally, vote.option_index if vote else None)
@@ -113,6 +111,5 @@ async def close_poll(
     poll_service.check_ownership(poll, current_user.id, current_user.role == UserRole.admin)
     poll = await poll_service.close_poll(db, poll)
     await db.commit()
-    await db.refresh(poll)
     tally = await event_poll_repo.get_tally(db, poll.id)
     return poll_service.build_poll_response(poll, tally, None)

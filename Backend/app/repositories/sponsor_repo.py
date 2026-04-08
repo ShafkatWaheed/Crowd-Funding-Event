@@ -1203,5 +1203,37 @@ class SponsorRepository(BaseRepository[SponsorBid]):
         await db.flush()
 
 
+    async def has_active_bid(
+        self, db: AsyncSession, event_id: int, user_id: int
+    ) -> bool:
+        """Return True if the user has an active bid (pending/accepted/paid) for this event."""
+        active = {BidStatus.pending, BidStatus.accepted, BidStatus.paid}
+        q = (
+            select(func.count())
+            .select_from(SponsorBid)
+            .join(SponsorshipCategory, SponsorshipCategory.id == SponsorBid.category_id)
+            .where(
+                SponsorshipCategory.event_id == event_id,
+                SponsorBid.sponsor_user_id == user_id,
+                SponsorBid.status.in_(active),
+            )
+        )
+        return int((await db.execute(q)).scalar_one()) > 0
+
+    async def get_accepted_sponsor_user_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        """Return distinct user IDs of sponsors with accepted or paid bids for an event."""
+        q = (
+            select(func.distinct(SponsorBid.sponsor_user_id))
+            .join(SponsorshipCategory, SponsorshipCategory.id == SponsorBid.category_id)
+            .where(
+                SponsorshipCategory.event_id == event_id,
+                SponsorBid.status.in_({BidStatus.accepted, BidStatus.paid}),
+            )
+        )
+        return list((await db.execute(q)).scalars().all())
+
+
 # Module-level singleton
 sponsor_repo = SponsorRepository()

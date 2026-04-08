@@ -60,6 +60,18 @@ class PledgeProvider extends ChangeNotifier {
     await load();
   }
 
+  /// Reset all cached state. Called on logout to prevent data from one user
+  /// session leaking into another.
+  void clearCache() {
+    pledges = [];
+    loading = false;
+    loadingMore = false;
+    hasMore = true;
+    error = null;
+    sortBy = 'newest';
+    notifyListeners();
+  }
+
   // ─── Forwarded FundingRepository methods ─────────────────────────────────
 
   Future<PaginatedResult<Pledge>> getMyPledges({

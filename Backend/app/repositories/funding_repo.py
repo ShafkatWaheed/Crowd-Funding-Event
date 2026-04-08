@@ -380,6 +380,33 @@ class FundingRepository(BaseRepository[Funding]):
         )
         return {int(r.event_id): int(r.total) for r in (await db.execute(q)).all()}
 
+    async def get_funding_aggregates_for_events(
+        self, db: AsyncSession, event_ids: list[int]
+    ) -> dict[int, tuple[int, int]]:
+        """Combined query: returns {event_id: (total_pledged_cents, total_reserved_spots)}.
+
+        Replaces separate get_pledged_totals_for_events + get_total_reserved_spots_for_events
+        calls with a single DB round-trip.
+        """
+        if not event_ids:
+            return {}
+        q = (
+            select(
+                Funding.event_id,
+                func.coalesce(func.sum(Funding.amount_cents), 0).label("pledged"),
+                func.coalesce(func.sum(Funding.reserved_spots), 0).label("reserved"),
+            )
+            .where(
+                Funding.event_id.in_(event_ids),
+                Funding.status == FundingStatus.pledged,
+            )
+            .group_by(Funding.event_id)
+        )
+        return {
+            int(r.event_id): (int(r.pledged), int(r.reserved))
+            for r in (await db.execute(q)).all()
+        }
+
     async def consume_one_reserved_spot(
         self, db: AsyncSession, event_id: int, user_id: int
     ) -> None:

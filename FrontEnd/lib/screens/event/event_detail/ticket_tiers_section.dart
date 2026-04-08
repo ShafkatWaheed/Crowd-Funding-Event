@@ -336,6 +336,7 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
     String fmtCents(int c) => '\$${(c / 100).toStringAsFixed(2)}';
 
     int quantity = 1;
+    var isPurchasing = false;
 
     final result = await showDialog<int>(
       context: context,
@@ -634,20 +635,38 @@ class _TicketTiersSectionState extends State<TicketTiersSection> {
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton.icon(
-                            onPressed: () => Navigator.of(ctx).pop(quantity),
-                            icon: Icon(isFree
-                                ? Icons.check_circle_rounded
-                                : Icons.shopping_cart_rounded),
+                            onPressed: isPurchasing
+                                ? null
+                                : () {
+                                    setDialogState(() => isPurchasing = true);
+                                    Navigator.of(ctx).pop(quantity);
+                                  },
+                            icon: isPurchasing
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(isFree
+                                    ? Icons.check_circle_rounded
+                                    : Icons.shopping_cart_rounded),
                             label: Text(
-                              isFree
-                                  ? (quantity > 1 ? 'Get $quantity Free Tickets' : 'Get Free Ticket')
-                                  : (quantity > 1 ? 'Buy $quantity Tickets' : 'Confirm Purchase'),
+                              isPurchasing
+                                  ? 'Processing...'
+                                  : isFree
+                                      ? (quantity > 1 ? 'Get $quantity Free Tickets' : 'Get Free Ticket')
+                                      : (quantity > 1 ? 'Buy $quantity Tickets' : 'Confirm Purchase'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isFree ? AppTheme.successColor : ctx.ticketAccent,
                               foregroundColor: Colors.white,
+                              disabledBackgroundColor: (isFree ? AppTheme.successColor : ctx.ticketAccent).withValues(alpha: 0.6),
+                              disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
                               shape: RoundedRectangleBorder(
                                   borderRadius: AppRadius.lg),
                               elevation: 0,

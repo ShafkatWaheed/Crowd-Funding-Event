@@ -43,68 +43,72 @@ class AppIcons {
 
   static EventStatusMeta forEventStatus(EventStatus s) {
     switch (s) {
+      // ── Inactive (grey) ──
       case EventStatus.draft:
         return EventStatusMeta(
           displayName: 'Draft',
           icon: Icons.edit_note_rounded,
-          color: (isDark) => isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
-          gradientColors: const [Color(0xFF616161), Color(0xFF424242)],
+          color: (isDark) => isDark ? const Color(0xFF9E9E9E) : const Color(0xFF6B6B6B),
+          gradientColors: const [Color(0xFF6B6B6B), Color(0xFF4A4A4A)],
         );
+      case EventStatus.completed:
+        return EventStatusMeta(
+          displayName: 'Completed',
+          icon: Icons.emoji_events_rounded,
+          color: (isDark) => isDark ? const Color(0xFF9E9E9E) : const Color(0xFF6B6B6B),
+          gradientColors: const [Color(0xFF6B6B6B), Color(0xFF4A4A4A)],
+        );
+      // ── Attention (amber) ──
       case EventStatus.pending_approval:
         return EventStatusMeta(
           displayName: 'Waiting Approval',
           icon: Icons.hourglass_top_rounded,
-          color: (isDark) => isDark ? const Color(0xFFFFB74D) : const Color(0xFFF59E0B),
-          gradientColors: const [Color(0xFFF59E0B), Color(0xFFE65100)],
+          color: (isDark) => isDark ? const Color(0xFFFFB74D) : const Color(0xFFD4940A),
+          gradientColors: const [Color(0xFFFFC043), Color(0xFFD4940A)],
         );
+      case EventStatus.waiting_event_date:
+        return EventStatusMeta(
+          displayName: 'Awaiting Date',
+          icon: Icons.pending_actions_rounded,
+          color: (isDark) => isDark ? const Color(0xFFFFB74D) : const Color(0xFFD4940A),
+          gradientColors: const [Color(0xFFFFC043), Color(0xFFD4940A)],
+        );
+      case EventStatus.under_review:
+        return EventStatusMeta(
+          displayName: 'Under Review',
+          icon: Icons.manage_search_rounded,
+          color: (isDark) => isDark ? const Color(0xFFFFB74D) : const Color(0xFFD4940A),
+          gradientColors: const [Color(0xFFFFC043), Color(0xFFD4940A)],
+        );
+      // ── Active (blue) ──
       case EventStatus.approved:
         return EventStatusMeta(
           displayName: 'Funding',
           icon: Icons.rocket_launch_rounded,
-          color: (isDark) => isDark ? const Color(0xFF90CAF9) : AppTheme.accentColor,
+          color: (isDark) => isDark ? const Color(0xFF5B8DEF) : AppTheme.accentColor,
           gradientColors: const [Color(0xFF276EF1), Color(0xFF1A56D6)],
         );
       case EventStatus.selling_tickets:
         return EventStatusMeta(
           displayName: 'Selling Tickets',
           icon: Icons.confirmation_number_rounded,
-          color: (isDark) => isDark ? const Color(0xFF4DD0E1) : AppTheme.cyanColor,
-          gradientColors: const [Color(0xFF0891B2), Color(0xFF0E7490)],
-        );
-      case EventStatus.waiting_event_date:
-        return EventStatusMeta(
-          displayName: 'Awaiting Date',
-          icon: Icons.pending_actions_rounded,
-          color: (isDark) => isDark ? const Color(0xFFFFB74D) : const Color(0xFFEA580C),
-          gradientColors: const [Color(0xFFEA580C), Color(0xFFC2410C)],
+          color: (isDark) => isDark ? const Color(0xFF5B8DEF) : AppTheme.accentColor,
+          gradientColors: const [Color(0xFF276EF1), Color(0xFF1A56D6)],
         );
       case EventStatus.live:
         return EventStatusMeta(
           displayName: 'Live',
           icon: Icons.sensors_rounded,
-          color: (isDark) => isDark ? const Color(0xFF66BB6A) : AppTheme.secondaryColor,
-          gradientColors: const [Color(0xFF05944F), Color(0xFF0A7544)],
+          color: (isDark) => isDark ? const Color(0xFF5B8DEF) : AppTheme.accentColor,
+          gradientColors: const [Color(0xFF276EF1), Color(0xFF1A56D6)],
         );
-      case EventStatus.completed:
-        return EventStatusMeta(
-          displayName: 'Completed',
-          icon: Icons.emoji_events_rounded,
-          color: (isDark) => isDark ? const Color(0xFFBB86FC) : AppTheme.purpleColor,
-          gradientColors: const [Color(0xFF9333EA), Color(0xFF7C3AED)],
-        );
+      // ── Negative (red) ──
       case EventStatus.cancelled:
         return EventStatusMeta(
           displayName: 'Cancelled',
           icon: Icons.event_busy_rounded,
-          color: (isDark) => isDark ? const Color(0xFFEF5350) : const Color(0xFF9B1C1C),
-          gradientColors: const [Color(0xFF9B1C1C), Color(0xFF7F1D1D)],
-        );
-      case EventStatus.under_review:
-        return EventStatusMeta(
-          displayName: 'Under Review',
-          icon: Icons.manage_search_rounded,
-          color: (isDark) => isDark ? const Color(0xFFFFD54F) : AppTheme.yellowColor,
-          gradientColors: const [Color(0xFFEAB308), Color(0xFFCA8A04)],
+          color: (isDark) => isDark ? const Color(0xFFEF5350) : AppTheme.errorColor,
+          gradientColors: const [Color(0xFFE11900), Color(0xFFB71400)],
         );
     }
   }

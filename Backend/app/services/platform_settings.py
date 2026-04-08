@@ -197,6 +197,7 @@ DEFAULTS = {
     "chat_max_message_length": 2000,
     "chat_stream_maxlen": 500,
     "chat_archive_retention_days": 30,
+    "completed_event_chat_retention_days": 7,
     # ── API rate limits (format: "N/minute", "N/second", or "N/hour") ──
     "rate_limit_global_default": "120/minute",
     "rate_limit_auth_verify": "10/minute",
@@ -372,6 +373,7 @@ DESCRIPTIONS = {
     "chat_max_message_length": "Max characters per chat message",
     "chat_stream_maxlen": "Max messages retained per bid chat in Redis (older trimmed)",
     "chat_archive_retention_days": "Days to keep archived chat files before permanent deletion",
+    "completed_event_chat_retention_days": "Days after event completion before hiding from My Events tab",
     "rate_limit_global_default": "Global default rate limit for all endpoints without a specific limit (e.g. 120/minute)",
     "rate_limit_auth_verify": "Rate limit for POST /auth/verify (e.g. 10/minute)",
     "rate_limit_public_config": "Rate limit for GET /config (e.g. 60/minute)",

@@ -80,3 +80,15 @@ def verify_id_token(token: str) -> dict:
         raise ValueError("Invalid token")
     logger.debug("Token verified for uid=%s", decoded.get("uid"))
     return decoded
+
+
+def get_rtdb_ref(path: str = "/"):
+    """Return a Firebase RTDB reference at the given path."""
+    from firebase_admin import db as rtdb
+
+    app = get_firebase_app()
+    database_url = (settings.FIREBASE_DATABASE_URL or "").strip()
+    if not database_url:
+        # Fallback to default US-region pattern
+        database_url = f"https://{settings.FIREBASE_PROJECT_ID.strip()}-default-rtdb.firebaseio.com"
+    return rtdb.reference(path, app=app, url=database_url)

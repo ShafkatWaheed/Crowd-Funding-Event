@@ -54,14 +54,18 @@ int _activeIndexForEvent(Event event, List<_Step> steps) {
   if (status == EventStatus.cancelled) { return -1; }
   if (status == EventStatus.draft ||
       status == EventStatus.pending_approval) { return -1; }
+  // under_review freezes at waiting_event_date — show progress up to that point
+  final effectiveStatus = status == EventStatus.under_review
+      ? EventStatus.waiting_event_date
+      : status;
   for (int i = steps.length - 1; i >= 0; i--) {
     final step = steps[i];
-    if (step.status == status) {
+    if (step.status == effectiveStatus) {
       if (step.isFundingActive && !event.isFunding) continue;
       return i;
     }
   }
-  if (status == EventStatus.approved) return 0;
+  if (effectiveStatus == EventStatus.approved) return 0;
   return -1;
 }
 

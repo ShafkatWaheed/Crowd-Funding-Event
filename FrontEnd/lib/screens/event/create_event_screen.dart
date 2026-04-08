@@ -408,7 +408,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         releaseTierSpotLimits: _releaseTierSpotLimits,
         isPrivate: _isPrivate,
       );
-      await executeCreateEventSubmission(
+      final result = await executeCreateEventSubmission(
         sponsorRepo: context.read<SponsorProvider>(), eventRepo: context.read<EventProvider>(),
         ticketRepo: context.read<TicketProvider>(),
         eventData: payload,
@@ -418,7 +418,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         localCategories: _localCategories, pickedImages: _pickedImages, imageBytes: _imageBytes,
       );
       setState(() => _isLoading = false);
-      if (mounted) context.pop(true);
+      if (mounted && result.warnings.isNotEmpty) {
+        AppToast.warning(context, '${result.warnings.length} issue(s) during setup. Event created but some items failed.');
+      }
+      if (mounted) {
+        AppToast.success(context, 'Event created successfully');
+        context.pop(true);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) AppToast.fromError(context, e, fallback: 'Failed to create event');

@@ -17,6 +17,7 @@ _PUBLIC_INT_KEYS = [
     "event_max_images_limit",
     "max_posts_per_event_limit",
     "max_co_organizers_limit",
+    "completed_event_chat_retention_days",
 ]
 _PUBLIC_BOOL_KEYS = [
     "max_tickets_frontend_enabled",

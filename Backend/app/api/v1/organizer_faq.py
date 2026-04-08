@@ -30,7 +30,6 @@ async def create_faq(
     """Create a new FAQ item for the current organizer."""
     faq = await faq_service.create(db, current_user.id, body)
     await db.commit()
-    await db.refresh(faq)
     return OrganizerFaqResponse.model_validate(faq)
 
 
@@ -46,7 +45,6 @@ async def update_faq(
     faq_service.check_ownership(faq, current_user.id, current_user.role == UserRole.admin)
     faq = await faq_service.update(db, faq, body)
     await db.commit()
-    await db.refresh(faq)
     return OrganizerFaqResponse.model_validate(faq)
 
 

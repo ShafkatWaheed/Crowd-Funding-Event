@@ -137,6 +137,48 @@ async def test_user_ratings_summary(
     assert "worst_reviews" in data
 
 
+async def test_create_rating_invalid_direction(
+    client: AsyncClient,
+    test_event_completed,
+    test_users,
+    auth_headers_customer,
+) -> None:
+    """POST /events/{id}/ratings with invalid direction returns 400."""
+    r = await client.post(
+        _ratings_url(test_event_completed.id),
+        json={
+            "direction": "invalid_direction",
+            "stars": 4,
+            "description": "Bad direction",
+        },
+        headers=auth_headers_customer,
+    )
+    assert r.status_code == 400
+    assert "invalid direction" in r.json()["detail"].lower()
+
+
+async def test_create_rating_self_rating_prevented(
+    client: AsyncClient,
+    test_event_completed,
+    test_users,
+    auth_headers_customer,
+) -> None:
+    """POST /events/{id}/ratings with rated_user_id == current user returns 400."""
+    customer = test_users["customer"]
+    r = await client.post(
+        _ratings_url(test_event_completed.id),
+        json={
+            "direction": "customer_to_event",
+            "rated_user_id": customer.id,
+            "stars": 5,
+            "description": "Rating myself",
+        },
+        headers=auth_headers_customer,
+    )
+    assert r.status_code == 400
+    assert "cannot rate yourself" in r.json()["detail"].lower()
+
+
 # ── reaction tests (from events/reactions.py) ──
 
 async def test_event_react(

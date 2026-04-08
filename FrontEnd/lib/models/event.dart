@@ -714,6 +714,7 @@ class PublicConfig {
   final bool featureSponsorsEnabled;
   final bool featureCommunityRulesEnabled;
   final bool offlineTicketAutoDownloadEnabled;
+  final int completedEventChatRetentionDays;
 
   PublicConfig({
     this.maxTicketsPerPurchase = 10,
@@ -727,6 +728,7 @@ class PublicConfig {
     this.featureSponsorsEnabled = true,
     this.featureCommunityRulesEnabled = true,
     this.offlineTicketAutoDownloadEnabled = false,
+    this.completedEventChatRetentionDays = 7,
   });
 
   factory PublicConfig.fromJson(Map<String, dynamic> json) => PublicConfig(
@@ -752,6 +754,8 @@ class PublicConfig {
             (json['feature_community_rules_enabled'] as bool?) ?? true,
         offlineTicketAutoDownloadEnabled:
             (json['offline_ticket_auto_download_enabled'] as bool?) ?? false,
+        completedEventChatRetentionDays:
+            (json['completed_event_chat_retention_days'] as int?) ?? 7,
       );
 
   Map<String, int> get platformLimits => {

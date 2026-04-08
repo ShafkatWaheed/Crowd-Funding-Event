@@ -49,7 +49,15 @@ async def create_rating(request: Request, event_id: int, body: RatingCreate, db:
     if event.status != EventStatus.completed:
         raise HTTPException(status_code=400, detail="Ratings are only allowed for completed events")
 
-    direction = RatingDirection(body.direction)
+    # Validate direction enum
+    try:
+        direction = RatingDirection(body.direction)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid direction: {body.direction}")
+
+    # Prevent self-rating
+    if body.rated_user_id and body.rated_user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot rate yourself")
 
     existing = await rating_repo.get_existing(db, current_user.id, event_id, direction)
     if existing:

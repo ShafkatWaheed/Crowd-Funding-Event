@@ -15,6 +15,7 @@ import '../../../widgets/fullscreen_image_viewer.dart';
 import '../../../widgets/shimmer_loaders.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'event_detail_helpers.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EventImageGallery extends StatefulWidget {
   final int eventId;
@@ -228,6 +229,8 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             right: 4,
                             child: GestureDetector(
                               onTap: () async {
+                                if (!await confirmDelete(context, 'image')) return;
+                                if (!context.mounted) return;
                                 final repo = context.read<EventProvider>();
                                 await repo.deleteEventImage(
                                     widget.eventId, img.id);

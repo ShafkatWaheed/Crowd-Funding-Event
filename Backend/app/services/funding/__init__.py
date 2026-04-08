@@ -22,6 +22,7 @@ from app.services.funding.reservations import (
     get_user_reserved_spots_for_tier,
 )
 from app.services.funding.summary import (
+    get_funding_aggregates_for_events,
     get_pledged_totals_for_events,
     get_summary,
     get_user_pledge_amounts_for_events,
@@ -31,6 +32,7 @@ __all__ = [
     "consume_one_reserved_spot",
     "consume_reserved_spots_for_tier",
     "create_pledge",
+    "get_funding_aggregates_for_events",
     "get_pledged_totals_for_events",
     "get_reserved_spots_for_tier",
     "get_summary",

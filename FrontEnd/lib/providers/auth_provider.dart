@@ -36,6 +36,12 @@ class AuthProvider extends ChangeNotifier {
   Future<void> Function()? _onBeforeSignOut;
   set onBeforeSignOut(Future<void> Function()? cb) => _onBeforeSignOut = cb;
 
+  /// Optional callback invoked *after* sign-out completes (user cleared) but
+  /// before notifyListeners — used to clear provider caches so no stale data
+  /// from User A leaks into User B's session.
+  VoidCallback? _onAfterSignOut;
+  set onAfterSignOut(VoidCallback? cb) => _onAfterSignOut = cb;
+
   AuthProvider(this._api) {
     _firebaseAuth.authStateChanges().listen(_onAuthStateChanged);
   }
@@ -226,6 +232,7 @@ class AuthProvider extends ChangeNotifier {
     await _firebaseAuth.signOut();
     _user = null;
     _errorMessage = null;
+    _onAfterSignOut?.call();
     notifyListeners();
   }
 

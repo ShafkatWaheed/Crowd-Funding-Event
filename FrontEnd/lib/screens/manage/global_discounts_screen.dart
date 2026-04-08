@@ -7,6 +7,7 @@ import '../../models/discount.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
+import '../event/create_event/create_event_actions.dart' show confirmDelete;
 
 class GlobalDiscountsScreen extends StatefulWidget {
   const GlobalDiscountsScreen({super.key});
@@ -75,6 +76,8 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
   }
 
   Future<void> _delete(int id) async {
+    if (!await confirmDelete(context, 'discount strategy')) return;
+    if (!mounted) return;
     try {
       await context.read<TicketProvider>().deleteDiscountStrategy(id);
       _load();

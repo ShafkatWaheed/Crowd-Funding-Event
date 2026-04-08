@@ -147,6 +147,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (mounted) setState(() => _bookmarked = res.bookmarked);
     } catch (e) {
       debugPrint(e.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update bookmark'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -418,7 +426,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.warningColor)),
                 ),
-              const SizedBox(width: 8),
+              AppSpacing.hSm,
             ],
             Expanded(
               child: Text(
@@ -555,7 +563,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            AppSpacing.vMd,
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
@@ -569,15 +577,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         event.genre!.substring(1),
                     color: AppTheme.secondaryColor,
                   ),
-                if (event.registrationCount > 0 &&
-                    event.status != EventStatus.approved &&
-                    event.status != EventStatus.waiting_event_date)
-                  EventDetailHelpers.tagPill(
-                    icon: Icons.group_rounded,
-                    label:
-                        '${event.registrationCount} ${(event.status == EventStatus.selling_tickets || event.status == EventStatus.live) ? 'engaged' : 'joined'}',
-                    color: AppTheme.accentColor,
-                  ),
                 if (event.organizerName != null &&
                     event.organizerName!.isNotEmpty)
                   GestureDetector(
@@ -588,29 +587,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       color: AppTheme.accentColor,
                     ),
                   ),
-                if (event.status != EventStatus.waiting_event_date)
-                  GestureDetector(
-                    onTap: () => _showOrganizerBottomSheet(event),
-                    child: EventDetailHelpers.trustBadgePill(context, event),
-                  ),
-                if (_revenueCents > 0 &&
-                    user != null &&
-                    (user.isOrganizer ||
-                        user.isAdmin ||
-                        event.viewerIsCoOrganizer) &&
-                    !widget.readOnly)
-                  EventDetailHelpers.tagPill(
-                    icon: Icons.paid_rounded,
-                    label:
-                        '\$${(_revenueCents / 100).toStringAsFixed(0)} revenue',
-                    color: context.ticketAccent,
-                  ),
               ],
             )
                 .animate()
                 .fadeIn(duration: 300.ms, delay: 80.ms)
                 .slideX(begin: -0.04, duration: 300.ms),
-            const SizedBox(height: 16),
+            AppSpacing.vLg,
             EventLifecycleBreadcrumb(event: event),
           ],
         ),
@@ -734,12 +716,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Stats row ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: _buildStatsRow(context, event, isDark),
-        ),
-
         // ── Content sections ──
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 80),
@@ -847,7 +823,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               index: 1,
               child: (event.status == EventStatus.selling_tickets ||
                        event.status == EventStatus.live ||
-                       event.status == EventStatus.completed)
+                       event.status == EventStatus.completed ||
+                       event.status == EventStatus.under_review)
                   ? FundingResultsCard(eventId: widget.eventId, event: event)
                   : FundingCard(
                       eventId: widget.eventId,
@@ -1002,6 +979,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 'This event has ended. Thanks for being part of it!',
                 Icons.check_circle,
                 AppTheme.textSecondaryOf(context)),
+          if (event.status == EventStatus.under_review)
+            EventDetailHelpers.infoBanner(
+                'This event is under review by the platform. Activity is paused while we look into it.',
+                Icons.manage_search_rounded,
+                AppTheme.warningColor),
 
           // Sponsor access
           if (user != null &&
@@ -1135,65 +1117,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  // ── Stats row: registered count / funding days / capacity ──
-  Widget _buildStatsRow(BuildContext context, Event event, bool isDark) {
-    final items = <({String val, String lbl})>[];
-
-    if (event.totalReservedSpots > 0 && !event.isFunding &&
-        event.status != EventStatus.waiting_event_date) {
-      items.add((val: '${event.totalReservedSpots}', lbl: 'Backers'));
-    }
-
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.cardOf(context),
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppTheme.dividerOf(context)),
-      ),
-      child: Row(
-        children: List.generate(items.length, (i) {
-          final item = items[i];
-          return Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              decoration: BoxDecoration(
-                border: i < items.length - 1
-                    ? Border(
-                        right: BorderSide(color: AppTheme.dividerOf(context)),
-                      )
-                    : null,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    item.val,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.textPrimaryOf(context),
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.lbl.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.07 * 9,
-                      color: AppTheme.textSecondaryOf(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 
   void _showOrganizerBottomSheet(Event event) {
     final name = event.organizerName ?? 'Organizer';

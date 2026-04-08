@@ -168,14 +168,14 @@ class FundingMilestoneRow extends StatelessWidget {
     final IconData iconData;
     switch (state) {
       case FundingMsState.hit:
-        iconBg = const Color(0xFF10B981).withValues(alpha: 0.12);
-        iconFg = const Color(0xFF34D399);
-        amountColor = const Color(0xFF34D399).withValues(alpha: 0.8);
+        iconBg = AppTheme.successColor.withValues(alpha: 0.12);
+        iconFg = AppTheme.successColor;
+        amountColor = AppTheme.successColor.withValues(alpha: 0.8);
         iconData = Icons.check_rounded;
       case FundingMsState.next:
-        iconBg = const Color(0xFF6D28D9).withValues(alpha: 0.18);
-        iconFg = const Color(0xFFA78BFA);
-        amountColor = const Color(0xFFA78BFA);
+        iconBg = AppTheme.purpleColor.withValues(alpha: 0.18);
+        iconFg = AppTheme.purpleColor.withValues(alpha: 0.7);
+        amountColor = AppTheme.purpleColor.withValues(alpha: 0.7);
         iconData = Icons.star_outline_rounded;
       case FundingMsState.locked:
         iconBg = isDark
@@ -199,7 +199,7 @@ class FundingMilestoneRow extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 widthFactor: nextFillFraction,
                 child: Container(
-                  color: const Color(0xFF6D28D9).withValues(alpha: 0.09),
+                  color: AppTheme.purpleColor.withValues(alpha: 0.09),
                 ),
               ),
             ),
@@ -212,7 +212,7 @@ class FundingMilestoneRow extends StatelessWidget {
               borderRadius: AppRadius.md,
               border: Border.all(
                 color: state == FundingMsState.next
-                    ? const Color(0xFF8B5CF6).withValues(alpha: 0.25)
+                    ? AppTheme.purpleColor.withValues(alpha: 0.25)
                     : (isDark
                         ? Colors.white.withValues(alpha: 0.06)
                         : Colors.black.withValues(alpha: 0.06)),

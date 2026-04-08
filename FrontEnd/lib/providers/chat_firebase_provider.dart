@@ -90,42 +90,43 @@ class ChatFirebaseProvider extends ChangeNotifier {
         }
       }
 
-      // 1) Fetch user's registered/pledged/ticketed events
-      try {
-        final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);
-        for (final event in myEvents) {
-          eventMap.putIfAbsent(
-            event.id,
-            () => _EventCardBuilder(
-              eventId: event.id,
-              eventTitle: event.title,
-              eventStatus: event.status.name,
-              startTime: event.startTime,
-              endTime: event.endTime,
-              venueName: event.venue?.name,
-            ),
-          );
+      // 1-2) Customer/sponsor only: fetch registered events + tickets
+      if (!isOrganizer) {
+        try {
+          final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);
+          for (final event in myEvents) {
+            eventMap.putIfAbsent(
+              event.id,
+              () => _EventCardBuilder(
+                eventId: event.id,
+                eventTitle: event.title,
+                eventStatus: event.status.name,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                venueName: event.venue?.name,
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Portal: failed to load my events: $e');
         }
-      } catch (e) {
-        debugPrint('Portal: failed to load my events: $e');
-      }
 
-      // 2) Fetch user's tickets grouped by event
-      try {
-        final ticketResult = await _ticketRepo.getMyTickets(offset: 0, limit: 200);
-        for (final ticket in ticketResult.items) {
-          final builder = eventMap.putIfAbsent(
-            ticket.eventId,
-            () => _EventCardBuilder(
-              eventId: ticket.eventId,
-              eventTitle: ticket.eventTitle ?? 'Event #${ticket.eventId}',
-              eventStatus: ticket.eventStatus ?? 'selling_tickets',
-            ),
-          );
-          builder.tickets.add(ticket);
+        try {
+          final ticketResult = await _ticketRepo.getMyTickets(offset: 0, limit: 200);
+          for (final ticket in ticketResult.items) {
+            final builder = eventMap.putIfAbsent(
+              ticket.eventId,
+              () => _EventCardBuilder(
+                eventId: ticket.eventId,
+                eventTitle: ticket.eventTitle ?? 'Event #${ticket.eventId}',
+                eventStatus: ticket.eventStatus ?? 'selling_tickets',
+              ),
+            );
+            builder.tickets.add(ticket);
+          }
+        } catch (e) {
+          debugPrint('Portal: failed to load tickets: $e');
         }
-      } catch (e) {
-        debugPrint('Portal: failed to load tickets: $e');
       }
 
       // 3) Fetch user's conversations (DMs)

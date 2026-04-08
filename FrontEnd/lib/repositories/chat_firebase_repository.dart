@@ -28,6 +28,14 @@ class ChatFirebaseRepository extends BaseRepository {
     });
   }
 
+  /// One-shot read of channel data (not a stream). Returns raw map or null.
+  Future<Map<String, dynamic>?> getChannelOnce(String channelId) async {
+    final snap = await _ref('channels/$channelId').get();
+    final data = snap.value as Map?;
+    if (data == null) return null;
+    return Map<String, dynamic>.from(data);
+  }
+
   Stream<List<ChatPost>> watchPosts(String channelId) {
     return _ref('posts/$channelId').onValue.map((event) {
       final data = event.snapshot.value as Map?;

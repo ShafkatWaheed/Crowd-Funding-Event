@@ -142,7 +142,18 @@ class ChatFirebaseProvider extends ChangeNotifier {
         });
       }
 
-      // 5) Build cards and sort by priority
+      // 5) Check for announcement channels per event
+      for (final builder in eventMap.values) {
+        final channelId = 'event_${builder.eventId}_customer';
+        try {
+          final channelData = await _repo.getChannelOnce(channelId);
+          if (channelData != null) {
+            builder.channel = ChatChannel.fromFirebase(channelId, channelData);
+          }
+        } catch (_) {}
+      }
+
+      // 6) Build cards and sort by priority
       myEventCards = eventMap.values.map((b) => b.build()).toList();
       myEventCards.sort((a, b) {
         final priCmp = a.sortPriority.compareTo(b.sortPriority);
@@ -288,6 +299,7 @@ class _EventCardBuilder {
   final DateTime? startTime;
   final DateTime? endTime;
   final String? venueName;
+  ChatChannel? channel;
   DmConversation? conversation;
   List<TicketSale> tickets = [];
 
@@ -308,6 +320,7 @@ class _EventCardBuilder {
       startTime: startTime,
       endTime: endTime,
       venueName: venueName,
+      channel: channel,
       conversation: conversation,
       tickets: tickets,
     );

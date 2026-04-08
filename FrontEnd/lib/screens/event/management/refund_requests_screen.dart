@@ -7,6 +7,7 @@ import '../../../utils/date_time_utils.dart';
 import '../../../config/design_tokens.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../create_event/create_event_actions.dart' show confirmAction;
 
 class RefundRequestsScreen extends StatefulWidget {
   final int eventId;
@@ -39,6 +40,11 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
   }
 
   Future<void> _approve(int ticketId) async {
+    if (!await confirmAction(context,
+        title: 'Approve refund?',
+        message: 'This will process the refund immediately. This action cannot be undone.',
+        confirmLabel: 'Approve Refund',
+    )) return;
     try {
       final repo = context.read<TicketProvider>();
       await repo.approveTicketRefund(widget.eventId, ticketId);

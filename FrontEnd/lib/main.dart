@@ -184,6 +184,13 @@ class _AppShellState extends State<_AppShell> {
       await notifProvider.unregisterDevice();
     };
 
+    // Wire post-signout hook to clear cached provider data so no stale
+    // data from User A leaks into User B's session.
+    context.read<AuthProvider>().onAfterSignOut = () {
+      context.read<EventProvider>().clearCache();
+      context.read<PledgeProvider>().clearCache();
+    };
+
     notifProvider.initFcm();
 
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
@@ -237,10 +244,11 @@ class _AppShellState extends State<_AppShell> {
     _fcmInitialized = false;
     _foregroundSub?.cancel();
     _openedAppSub?.cancel();
-    // Clear the pre-signout hook. Device token was already unregistered
+    // Clear the pre/post-signout hooks. Device token was already unregistered
     // by the hook before Firebase signed out; calling unregisterDevice()
     // here would 401 because the auth session is already gone.
     context.read<AuthProvider>().onBeforeSignOut = null;
+    context.read<AuthProvider>().onAfterSignOut = null;
   }
 
   @override

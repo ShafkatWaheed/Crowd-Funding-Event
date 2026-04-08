@@ -25,7 +25,7 @@ class BidLeaderboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.emoji_events_rounded, size: 16, color: Color(0xFFD4A017)),
+              const Icon(Icons.emoji_events_rounded, size: 16, color: AppTheme.medalGold),
               const SizedBox(width: 6),
               Text(
                 'Top Bids',
@@ -50,9 +50,9 @@ class BidLeaderboard extends StatelessWidget {
             final fraction = maxAmount > 0 ? cents / maxAmount : 0.0;
 
             final (IconData? icon, Color color) = switch (i) {
-              0 => (Icons.emoji_events_rounded, const Color(0xFFD4A017)),
-              1 => (Icons.emoji_events_rounded, const Color(0xFF9E9E9E)),
-              2 => (Icons.emoji_events_rounded, const Color(0xFFCD7F32)),
+              0 => (Icons.emoji_events_rounded, AppTheme.medalGold),
+              1 => (Icons.emoji_events_rounded, AppTheme.medalSilver),
+              2 => (Icons.emoji_events_rounded, AppTheme.medalBronze),
               _ => (null, AppTheme.textSecondaryOf(context)),
             };
 
@@ -95,11 +95,11 @@ class BidLeaderboard extends StatelessWidget {
                         backgroundColor: AppTheme.dividerOf(context),
                         valueColor: AlwaysStoppedAnimation(
                           i == 0
-                              ? const Color(0xFFD4A017)
+                              ? AppTheme.medalGold
                               : i == 1
-                                  ? const Color(0xFF9E9E9E)
+                                  ? AppTheme.medalSilver
                                   : i == 2
-                                      ? const Color(0xFFCD7F32)
+                                      ? AppTheme.medalBronze
                                       : AppTheme.accentColor.withValues(alpha: 0.4),
                         ),
                       ),

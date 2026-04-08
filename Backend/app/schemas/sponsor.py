@@ -1,27 +1,27 @@
 """
 Sponsor marketplace Pydantic schemas.
 """
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Sponsor Profile ──
 
 class SponsorProfileCreate(BaseModel):
-    company_name: str
-    contact_name: str
-    profession: str
-    logo_url: str | None = None
-    description: str | None = None
-    website_url: str | None = None
+    company_name: str = Field(..., min_length=1, max_length=200)
+    contact_name: str = Field(..., min_length=1, max_length=200)
+    profession: str = Field(..., min_length=1, max_length=200)
+    logo_url: str | None = Field(None, max_length=2000)
+    description: str | None = Field(None, max_length=5000)
+    website_url: str | None = Field(None, max_length=2000)
 
 
 class SponsorProfileUpdate(BaseModel):
-    company_name: str | None = None
-    contact_name: str | None = None
-    profession: str | None = None
-    logo_url: str | None = None
-    description: str | None = None
-    website_url: str | None = None
+    company_name: str | None = Field(None, min_length=1, max_length=200)
+    contact_name: str | None = Field(None, min_length=1, max_length=200)
+    profession: str | None = Field(None, min_length=1, max_length=200)
+    logo_url: str | None = Field(None, max_length=2000)
+    description: str | None = Field(None, max_length=5000)
+    website_url: str | None = Field(None, max_length=2000)
 
 
 class SponsorProfileResponse(BaseModel):
@@ -40,20 +40,20 @@ class SponsorProfileResponse(BaseModel):
 # ── Sponsorship Categories ──
 
 class CategoryCreate(BaseModel):
-    name: str
-    description: str | None = None
-    image_url: str | None = None
-    total_spots: int
-    min_bid_cents: int
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=5000)
+    image_url: str | None = Field(None, max_length=2000)
+    total_spots: int = Field(..., ge=1)
+    min_bid_cents: int = Field(..., ge=0)
     sort_order: int = 0
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    image_url: str | None = None
-    total_spots: int | None = None
-    min_bid_cents: int | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=5000)
+    image_url: str | None = Field(None, max_length=2000)
+    total_spots: int | None = Field(None, ge=1)
+    min_bid_cents: int | None = Field(None, ge=0)
     sort_order: int | None = None
 
 
@@ -78,13 +78,13 @@ class CategoryResponse(BaseModel):
 # ── Sponsor Bids ──
 
 class BidCreate(BaseModel):
-    amount_cents: int
-    proposal_text: str | None = None
+    amount_cents: int = Field(..., ge=1)
+    proposal_text: str | None = Field(None, max_length=5000)
 
 
 class BidUpdate(BaseModel):
-    amount_cents: int | None = None
-    proposal_text: str | None = None
+    amount_cents: int | None = Field(None, ge=1)
+    proposal_text: str | None = Field(None, max_length=5000)
 
 
 class BidResponse(BaseModel):

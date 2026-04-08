@@ -17,6 +17,15 @@ async def get_pledged_totals_for_events(
     return await funding_repo.get_pledged_totals_for_events(db, event_ids)
 
 
+async def get_funding_aggregates_for_events(
+    db: AsyncSession,
+    *,
+    event_ids: list[int],
+) -> dict[int, tuple[int, int]]:
+    """Return { event_id: (total_pledged_cents, total_reserved_spots) } in one query."""
+    return await funding_repo.get_funding_aggregates_for_events(db, event_ids)
+
+
 async def get_user_pledge_amounts_for_events(
     db: AsyncSession,
     *,

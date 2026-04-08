@@ -515,13 +515,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [const Color(0xFF1A1035), const Color(0xFF0D1B3E)]
-                    : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
-              ),
+              gradient: AppTheme.socialHeaderGradient(isDark),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -536,7 +530,7 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                    color: isDark ? Colors.white : AppTheme.brandIndigo,
                   ),
                 ),
               ],
@@ -565,21 +559,21 @@ class _OrganizerProfileScreenState extends State<OrganizerProfileScreen> {
                   runSpacing: 10,
                   children: [
                     if (p.websiteUrl?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.language_rounded, 'Website', p.websiteUrl!, const Color(0xFF4F46E5)),
+                      _socialChip(context, Icons.language_rounded, 'Website', p.websiteUrl!, AppTheme.brandIndigo),
                     if (p.contactEmail?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.alternate_email_rounded, p.contactEmail!, 'mailto:${p.contactEmail!}', const Color(0xFF4F46E5)),
+                      _socialChip(context, Icons.alternate_email_rounded, p.contactEmail!, 'mailto:${p.contactEmail!}', AppTheme.brandIndigo),
                     if (p.instagram?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.camera_alt_outlined, 'Instagram', 'https://instagram.com/${p.instagram}', const Color(0xFFE1306C)),
+                      _socialChip(context, Icons.camera_alt_outlined, 'Instagram', 'https://instagram.com/${p.instagram}', AppTheme.brandInstagram),
                     if (p.twitter?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.alternate_email_rounded, 'X / Twitter', 'https://x.com/${p.twitter}', Colors.black),
+                      _socialChip(context, Icons.alternate_email_rounded, 'X / Twitter', 'https://x.com/${p.twitter}', AppTheme.primaryColor),
                     if (p.facebook?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.facebook_rounded, 'Facebook', 'https://facebook.com/${p.facebook}', const Color(0xFF1877F2)),
+                      _socialChip(context, Icons.facebook_rounded, 'Facebook', 'https://facebook.com/${p.facebook}', AppTheme.brandFacebook),
                     if (p.linkedin?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.work_outline_rounded, 'LinkedIn', 'https://linkedin.com/in/${p.linkedin}', const Color(0xFF0A66C2)),
+                      _socialChip(context, Icons.work_outline_rounded, 'LinkedIn', 'https://linkedin.com/in/${p.linkedin}', AppTheme.brandLinkedIn),
                     if (p.youtube?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.play_circle_outline_rounded, 'YouTube', 'https://youtube.com/@${p.youtube}', const Color(0xFFFF0000)),
+                      _socialChip(context, Icons.play_circle_outline_rounded, 'YouTube', 'https://youtube.com/@${p.youtube}', AppTheme.brandYouTube),
                     if (p.tiktok?.isNotEmpty ?? false)
-                      _socialChip(context, Icons.music_note_rounded, 'TikTok', 'https://tiktok.com/@${p.tiktok}', Colors.black),
+                      _socialChip(context, Icons.music_note_rounded, 'TikTok', 'https://tiktok.com/@${p.tiktok}', AppTheme.primaryColor),
                   ],
                 ),
               ],

@@ -1,7 +1,7 @@
 """
 Event registration: register, unregister, my-registration, registrations list, decision.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.dependencies import CurrentUser, DbSession, ReadDbSession, require_role, require_kyc
 from app.logger import get_logger, log_step
@@ -121,12 +121,14 @@ async def list_registrations(
     event_id: int,
     db: ReadDbSession,
     current_user: User = Depends(require_role(UserRole.organizer, UserRole.admin)),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
 ):
     """List registrations for event (organizer/admin/co-organizer)."""
     event = await event_service.get_or_404(db, event_id)
     if not await event_service.user_can_read_event_mgmt(db, event, current_user):
         raise ForbiddenError("You cannot view registrations for this event")
-    regs = await registration_service.list_registrations(db, event_id=event_id)
+    regs = await registration_service.list_registrations(db, event_id=event_id, offset=offset, limit=limit)
     return [
         RegistrationResponse(
             id=r.id,

@@ -1,22 +1,22 @@
 # Ticket Strategy schemas.
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TicketStrategyTierInput(BaseModel):
-    name: str           # e.g. "Platinum", "Diamond", "General"
-    description: str | None = None  # what this tier provides
-    price_cents: int    # price in cents
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    price_cents: int = Field(..., ge=0)  # 0 = free tier
     display_order: int = 0
 
 
 class TicketStrategyCreate(BaseModel):
-    name: str           # e.g. "Concert Standard", "Gala VIP"
+    name: str = Field(..., min_length=1, max_length=200)
     tiers: list[TicketStrategyTierInput]
 
 
 class TicketStrategyUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
     tiers: list[TicketStrategyTierInput] | None = None  # full replace of tiers
 
 

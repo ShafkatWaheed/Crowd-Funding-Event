@@ -25,7 +25,6 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.services import event as event_service
 from app.services import funding as funding_service
 from app.services import ticket as ticket_service
-from app.services import platform_settings as settings_svc
 from app.services import notification_service as notif_svc
 from app.services.ticket_crypto import encrypt_ticket_qr, decrypt_ticket_qr
 from app.worker.redis_pool import enqueue as arq_enqueue
@@ -179,12 +178,6 @@ async def get_ticket_price(
     info = await ticket_service.compute_ticket_price(
         db, event_id=event_id, user_id=current_user.id, tier_id=ticket_tier_id
     )
-    final = info["final_price_cents"]
-    commission_pct = await settings_svc.get_int(db, "ticket_commission_percent")
-    commission = final * commission_pct // 100 if final > 0 else 0
-    info["commission_cents"] = commission
-    info["net_to_organizer_cents"] = final - commission
-    info["ticket_commission_percent"] = commission_pct
     return TicketPricePreviewResponse(**info)
 
 

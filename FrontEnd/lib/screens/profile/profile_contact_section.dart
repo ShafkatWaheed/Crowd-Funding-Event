@@ -6,13 +6,8 @@ import '../../config/design_tokens.dart';
 import 'profile_section_card.dart';
 
 // ─── Brand colour palette for social networks ──────────────────────────────
-
-const _kInstagramColor = Color(0xFFE1306C);
-const _kTwitterColor   = Color(0xFF000000);
-const _kFacebookColor  = Color(0xFF1877F2);
-const _kLinkedInColor  = Color(0xFF0A66C2);
-const _kYouTubeColor   = Color(0xFFFF0000);
-const _kTikTokColor    = Color(0xFF010101);
+// Using AppTheme.brand* tokens for Instagram, Facebook, LinkedIn, YouTube.
+// Twitter/TikTok use AppTheme.primaryColor (black).
 
 // ─── Widget ────────────────────────────────────────────────────────────────
 
@@ -63,13 +58,7 @@ class ProfileContactSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 14),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [const Color(0xFF1A1035), const Color(0xFF0D1B3E)]
-                      : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
-                ),
+                gradient: AppTheme.socialHeaderGradient(isDark),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(AppRadius.lgValue),
                   topRight: Radius.circular(AppRadius.lgValue),
@@ -94,7 +83,7 @@ class ProfileContactSection extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                          color: isDark ? Colors.white : AppTheme.brandIndigo,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -104,7 +93,7 @@ class ProfileContactSection extends StatelessWidget {
                           fontSize: 11,
                           color: isDark
                               ? Colors.white.withValues(alpha: 0.5)
-                              : const Color(0xFF6366F1).withValues(alpha: 0.7),
+                              : AppTheme.brandIndigo.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -172,54 +161,54 @@ class ProfileContactSection extends StatelessWidget {
                     controller: instagramCtrl,
                     label: 'Instagram',
                     badge: '@',
-                    badgeColor: _kInstagramColor,
+                    badgeColor: AppTheme.brandInstagram,
                     hint: 'yourhandle',
-                    prefix: _SocialBadge(label: 'IG', color: _kInstagramColor),
+                    prefix: _SocialBadge(label: 'IG', color: AppTheme.brandInstagram),
                   ),
                   const SizedBox(height: 12),
                   _SocialField(
                     controller: twitterCtrl,
                     label: 'X / Twitter',
                     badge: '@',
-                    badgeColor: _kTwitterColor,
+                    badgeColor: AppTheme.primaryColor,
                     hint: 'yourhandle',
-                    prefix: _SocialBadge(label: '𝕏', color: _kTwitterColor),
+                    prefix: _SocialBadge(label: '𝕏', color: AppTheme.primaryColor),
                   ),
                   const SizedBox(height: 12),
                   _SocialField(
                     controller: facebookCtrl,
                     label: 'Facebook',
                     badge: 'f',
-                    badgeColor: _kFacebookColor,
+                    badgeColor: AppTheme.brandFacebook,
                     hint: 'page-name or handle',
-                    prefix: _SocialBadge(label: 'f', color: _kFacebookColor, fontSize: 15, fontWeight: FontWeight.w900),
+                    prefix: _SocialBadge(label: 'f', color: AppTheme.brandFacebook, fontSize: 15, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 12),
                   _SocialField(
                     controller: linkedinCtrl,
                     label: 'LinkedIn',
                     badge: 'in',
-                    badgeColor: _kLinkedInColor,
+                    badgeColor: AppTheme.brandLinkedIn,
                     hint: 'your-name',
-                    prefix: _SocialBadge(label: 'in', color: _kLinkedInColor, fontSize: 10),
+                    prefix: _SocialBadge(label: 'in', color: AppTheme.brandLinkedIn, fontSize: 10),
                   ),
                   const SizedBox(height: 12),
                   _SocialField(
                     controller: youtubeCtrl,
                     label: 'YouTube',
                     badge: '@',
-                    badgeColor: _kYouTubeColor,
+                    badgeColor: AppTheme.brandYouTube,
                     hint: 'yourchannel',
-                    prefix: _SocialBadge(label: '▶', color: _kYouTubeColor, fontSize: 11),
+                    prefix: _SocialBadge(label: '▶', color: AppTheme.brandYouTube, fontSize: 11),
                   ),
                   const SizedBox(height: 12),
                   _SocialField(
                     controller: tiktokCtrl,
                     label: 'TikTok',
                     badge: '@',
-                    badgeColor: _kTikTokColor,
+                    badgeColor: AppTheme.primaryColor,
                     hint: 'yourhandle',
-                    prefix: _SocialBadge(label: 'TT', color: _kTikTokColor, fontSize: 9),
+                    prefix: _SocialBadge(label: 'TT', color: AppTheme.primaryColor, fontSize: 9),
                   ),
                 ],
               ),

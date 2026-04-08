@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/app_typography.dart';
+import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/ticket.dart';
 import '../../../models/sponsor.dart';
@@ -223,98 +225,79 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
                 ],
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                if (_totalSold > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color:
-                            AppTheme.successColor.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: AppTheme.successColor
-                                .withValues(alpha: 0.15)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.qr_code_scanner_rounded,
-                              size: 18, color: AppTheme.successColor),
-                          const SizedBox(width: 10),
-                          Text(
-                            '$_totalScanned scanned / $_totalSold total sold',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.successColor,
-                            ),
-                          ),
-                          const Spacer(),
-                          SizedBox(
-                            width: 60,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: _totalSold > 0
-                                    ? _totalScanned / _totalSold
-                                    : 0,
-                                backgroundColor: AppTheme.successColor
-                                    .withValues(alpha: 0.15),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppTheme.successColor),
-                                minHeight: 6,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                Row(
+          if (_totalSold > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.successColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppTheme.successColor
+                          .withValues(alpha: 0.15)),
+                ),
+                child: Row(
                   children: [
-                    _statChip(
-                      '${_all.length} ${widget.scannedOnly ? 'scanned' : 'sold'}',
-                      widget.scannedOnly
-                          ? Icons.qr_code_scanner_rounded
-                          : Icons.confirmation_number_rounded,
-                      widget.scannedOnly
-                          ? AppTheme.successColor
-                          : AppTheme.primaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    _statChip(
-                      '\$${(_totalRevenue / 100).toStringAsFixed(2)}',
-                      Icons.attach_money_rounded,
-                      AppTheme.tealColor,
-                    ),
-                    const SizedBox(width: 8),
-                    if (_totalCommission > 0)
-                      _statChip(
-                        'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
-                        Icons.account_balance_wallet_rounded,
-                        AppTheme.purpleColor,
+                    Icon(Icons.qr_code_scanner_rounded,
+                        size: 18, color: AppTheme.successColor),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$_totalScanned scanned / $_totalSold total sold',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.successColor,
                       ),
-                    if (_searchCtrl.text.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      _statChip(
-                        '${filtered.length} match${filtered.length == 1 ? '' : 'es'}',
-                        Icons.filter_list_rounded,
-                        AppTheme.accentColor,
-                      ),
-                    ],
+                    ),
                     const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 20),
-                      onPressed: _load,
-                      tooltip: 'Refresh',
+                    SizedBox(
+                      width: 60,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _totalSold > 0
+                              ? _totalScanned / _totalSold
+                              : 0,
+                          backgroundColor: AppTheme.successColor
+                              .withValues(alpha: 0.15),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.successColor),
+                          minHeight: 6,
+                        ),
+                      ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    [
+                      '${_all.length} ${widget.scannedOnly ? 'scanned' : 'sold'}',
+                      '\$${(_totalRevenue / 100).toStringAsFixed(2)} revenue',
+                      if (_totalCommission > 0)
+                        'Net \$${(_totalNetToOrganizer / 100).toStringAsFixed(2)}',
+                      if (_searchCtrl.text.isNotEmpty)
+                        '${filtered.length} match${filtered.length == 1 ? '' : 'es'}',
+                    ].join(' \u00b7 '),
+                    style: AppTypography.caption.copyWith(
+                      color: AppTheme.textSecondaryOf(context),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh, size: AppIconSize.md,
+                      color: AppTheme.textSecondaryOf(context)),
+                  onPressed: _load,
+                  tooltip: 'Refresh',
                 ),
               ],
             ),
@@ -559,36 +542,6 @@ class _TicketSalesScreenState extends State<TicketSalesScreen> {
       ),
     );
   }
-
-  Widget _statChip(String label, IconData icon, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final c = isDark && _isNearBlack(color) ? AppTheme.accentColor : color;
-    final textC = isDark ? AppTheme.textPrimaryOf(context) : c;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color:
-            isDark ? AppTheme.cardOf(context) : c.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: c.withValues(alpha: isDark ? 0.4 : 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: c),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: textC)),
-        ],
-      ),
-    );
-  }
-
-  bool _isNearBlack(Color c) => c.r < 0.15 && c.g < 0.15 && c.b < 0.15;
 
   Widget _filterChip(String label, int value) {
     final selected = _scannedFilter == value;

@@ -8,6 +8,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
 import '../../../widgets/empty_state.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EventFeedSection extends StatefulWidget {
   final int eventId;
@@ -24,6 +25,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
   List<EventPost> _posts = [];
   bool _loading = true;
   bool _posting = false;
+  int _displayLimit = 10;
   final _ctrl = TextEditingController();
 
   @override
@@ -125,6 +127,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
   }
 
   Future<void> _deletePost(int postId) async {
+    if (!await confirmDelete(context, 'post')) return;
     try {
       final repo = context.read<EventProvider>();
       await repo.deleteEventPost(widget.eventId, postId);
@@ -255,11 +258,13 @@ class _EventFeedSectionState extends State<EventFeedSection> {
             title: 'No posts yet',
             subtitle: 'Be the first to share!',
           )
-        else
+        else ...[
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _posts.length,
+            itemCount: _posts.length < _displayLimit
+                ? _posts.length
+                : _displayLimit,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (ctx, i) {
               final post = _posts[i];
@@ -305,6 +310,15 @@ class _EventFeedSectionState extends State<EventFeedSection> {
               );
             },
           ),
+          if (_posts.length > _displayLimit)
+            Center(
+              child: TextButton(
+                onPressed: () =>
+                    setState(() => _displayLimit += 10),
+                child: const Text('Show more posts'),
+              ),
+            ),
+        ],
       ],
     );
   }

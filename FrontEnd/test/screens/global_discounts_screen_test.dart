@@ -154,6 +154,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
 
+      // Confirm the delete dialog
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
       verify(() => mockTicketRepo.deleteDiscountStrategy(42)).called(1);
     });
   });

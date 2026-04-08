@@ -92,8 +92,7 @@ async def list_events(
         cursor=cursor,
     )
     event_ids = [e.id for e in events]
-    pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=event_ids)
-    reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=event_ids)
+    funding_agg = await funding_service.get_funding_aggregates_for_events(db, event_ids=event_ids)
     tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=event_ids)
     tier_caps = await ticket_service.get_total_tier_capacity_for_events(db, event_ids=event_ids)
     first_images = await _get_first_images(db, event_ids)
@@ -108,7 +107,7 @@ async def list_events(
     now = datetime.now(timezone.utc)
     out = []
     for e in events:
-        total_cents = pledged.get(e.id, 0)
+        total_cents = funding_agg.get(e.id, (0, 0))[0]
         days_left = None
         if e.funding_end_at is not None:
             end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
@@ -119,7 +118,7 @@ async def list_events(
                 e,
                 total_pledged_cents=total_cents,
                 funding_days_left=days_left,
-                total_reserved_spots=reserved.get(e.id, 0),
+                total_reserved_spots=funding_agg.get(e.id, (0, 0))[1],
                 tickets_sold_count=tickets_sold.get(e.id, 0),
                 total_tier_capacity=tier_caps.get(e.id, 0),
                 first_image_url=first_images.get(e.id),
@@ -173,8 +172,7 @@ async def get_featured_events(
         popular_ids = [e.id for e in popular]
         coming_soon_ids = [e.id for e in coming_soon]
         all_ids = list(set(trending_ids + popular_ids + coming_soon_ids))
-        pledged = await funding_service.get_pledged_totals_for_events(db, event_ids=all_ids)
-        reserved = await funding_service.get_total_reserved_spots_for_events(db, event_ids=all_ids)
+        funding_agg = await funding_service.get_funding_aggregates_for_events(db, event_ids=all_ids)
         tickets_sold = await ticket_service.get_ticket_sold_counts_for_events(db, event_ids=all_ids)
         tier_caps = await ticket_service.get_total_tier_capacity_for_events(db, event_ids=all_ids)
         first_images = await _get_first_images(db, all_ids)
@@ -182,7 +180,7 @@ async def get_featured_events(
         now = datetime.now(timezone.utc)
 
         def _to_resp(e: Event) -> EventResponse:
-            total_cents = pledged.get(e.id, 0)
+            agg = funding_agg.get(e.id, (0, 0))
             days_left = None
             if e.funding_end_at is not None:
                 end = e.funding_end_at if e.funding_end_at.tzinfo else e.funding_end_at.replace(tzinfo=timezone.utc)
@@ -190,9 +188,9 @@ async def get_featured_events(
                 days_left = max(0, delta) if delta > 0 else 0
             return _event_to_response(
                 e,
-                total_pledged_cents=total_cents,
+                total_pledged_cents=agg[0],
                 funding_days_left=days_left,
-                total_reserved_spots=reserved.get(e.id, 0),
+                total_reserved_spots=agg[1],
                 tickets_sold_count=tickets_sold.get(e.id, 0),
                 total_tier_capacity=tier_caps.get(e.id, 0),
                 first_image_url=first_images.get(e.id),

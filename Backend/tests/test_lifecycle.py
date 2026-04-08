@@ -111,6 +111,20 @@ async def test_lifecycle_customer_forbidden(client, test_event, auth_headers_cus
     assert r.status_code == 403
 
 
+async def test_set_event_date_start_after_end(client, test_event_approved, auth_headers_organizer, test_users):
+    """Reject set-event-date when start_time >= end_time."""
+    future = datetime.now(timezone.utc) + timedelta(days=60)
+    start = (future + timedelta(hours=3)).isoformat()  # start AFTER end
+    end = future.isoformat()
+    r = await client.post(
+        f"/api/v1/events/{test_event_approved.id}/set-event-date",
+        json={"start_time": start, "end_time": end},
+        headers=auth_headers_organizer,
+    )
+    assert r.status_code == 400
+    assert "start_time must be before end_time" in r.json()["detail"]
+
+
 async def test_extension_decision(client, test_event_approved, auth_headers_admin, test_users, db_session):
     """Admin approves extension decision."""
     # Set up a pending extension

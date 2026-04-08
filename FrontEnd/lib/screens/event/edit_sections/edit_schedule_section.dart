@@ -6,6 +6,7 @@ import '../../../models/schedule.dart';
 import '../../../repositories/base_repository.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EditScheduleItem {
   int? id;
@@ -132,6 +133,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
   }
 
   Future<void> _deleteItem(int idx) async {
+    if (!await confirmDelete(context, 'schedule item')) return;
     final si = _items[idx];
     if (si.id != null) {
       try {

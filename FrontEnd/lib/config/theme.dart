@@ -69,6 +69,43 @@ class AppTheme {
     colors: [Color(0xFF9333EA), Color(0xFFC026D3)],
   );
 
+  // ─── Third-party brand colours (social media) ───
+  static const Color brandInstagram = Color(0xFFE1306C);
+  static const Color brandFacebook  = Color(0xFF1877F2);
+  static const Color brandLinkedIn  = Color(0xFF0A66C2);
+  static const Color brandYouTube   = Color(0xFFFF0000);
+  static const Color brandIndigo    = Color(0xFF4F46E5);
+
+  // ─── Medal colours (leaderboards) ───
+  static const Color medalGold   = Color(0xFFD4A017);
+  static const Color medalSilver = Color(0xFF9E9E9E);
+  static const Color medalBronze = Color(0xFFCD7F32);
+
+  // ─── Auth screen gradient ───
+  static LinearGradient authGradient(bool isDark) => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: isDark
+        ? [const Color(0xFF0A0A1A), const Color(0xFF121228)]
+        : [const Color(0xFFF0F4FF), const Color(0xFFF8FAFF)],
+  );
+
+  // ─── Social/contact section header gradient ───
+  static LinearGradient socialHeaderGradient(bool isDark) => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: isDark
+        ? [const Color(0xFF1A1035), const Color(0xFF0D1B3E)]
+        : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
+  );
+
+  /// Purple funding CTA gradient (deep → mid → vivid purple).
+  static const LinearGradient purpleGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [purpleColor, purpleColor, purpleColor],
+  );
+
   // ─── Tinted surface colours (light mode) ───
   static const Color accentSurface  = Color(0xFFF0F4FF);  // blue tint
   static const Color successSurface = Color(0xFFECFDF3);   // green tint
@@ -518,15 +555,15 @@ extension AppColors on BuildContext {
   Color get managementSurface => _dk ? const Color(0xFF1A1F2E) : Colors.indigo.withValues(alpha: 0.06);
   Color get scheduleSurface   => _dk ? const Color(0xFF1A2E1A) : Colors.green.withValues(alpha: 0.06);
 
-  // ─── Status colours (pills, badges, lifecycle indicators) ───
-  Color get statusDraft      => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF757575);
-  Color get statusPending    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
-  Color get statusApproved   => _dk ? const Color(0xFF66BB6A) : const Color(0xFF05944F);
-  Color get statusLive       => _dk ? const Color(0xFF42A5F5) : const Color(0xFF276EF1);
-  Color get statusSelling    => _dk ? const Color(0xFF4DB6AC) : const Color(0xFF00838F);
-  Color get statusWaiting    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFE65100);
-  Color get statusCompleted  => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF424242);
-  Color get statusCancelled  => _dk ? const Color(0xFFEF5350) : const Color(0xFF8B0000);
+  // ─── Status colours — 4 semantic groups ───
+  Color get statusDraft      => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF6B6B6B);  // inactive
+  Color get statusPending    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFD4940A);  // attention
+  Color get statusApproved   => _dk ? const Color(0xFF5B8DEF) : const Color(0xFF276EF1);  // active
+  Color get statusLive       => _dk ? const Color(0xFF5B8DEF) : const Color(0xFF276EF1);  // active
+  Color get statusSelling    => _dk ? const Color(0xFF5B8DEF) : const Color(0xFF276EF1);  // active
+  Color get statusWaiting    => _dk ? const Color(0xFFFFB74D) : const Color(0xFFD4940A);  // attention
+  Color get statusCompleted  => _dk ? const Color(0xFF9E9E9E) : const Color(0xFF6B6B6B);  // inactive
+  Color get statusCancelled  => _dk ? const Color(0xFFEF5350) : const Color(0xFFE11900);  // negative
 
   // ─── Trust score colours ───
   Color get trustHigh   => _dk ? const Color(0xFF66BB6A) : const Color(0xFF05944F);

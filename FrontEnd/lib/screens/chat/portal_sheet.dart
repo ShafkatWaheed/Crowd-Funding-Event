@@ -37,7 +37,6 @@ Future<void> showPortalSheet(BuildContext context, {VoidCallback? onFullView}) {
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               // Drag handle
               Padding(
@@ -105,14 +104,13 @@ class _PortalSheetContentState extends State<_PortalSheetContent> {
     final provider = context.watch<ChatFirebaseProvider>();
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
         // Top bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           child: Row(
             children: [
-              Text('My Events',
+              Text('My Portal',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimaryOf(context))),
               const Spacer(),
               InkWell(

@@ -69,6 +69,8 @@ class _EventPortalCardState extends State<EventPortalCard> {
             _header(context),
             if (card.channel != null) _announcementSection(context),
             if (!card.isOrganizer) _chatSection(context),
+            if (card.isOrganizer) _organizerConversationsRow(context),
+            if (card.isOrganizer) _scannerRow(context),
             if (card.bidInfo != null) _bidRow(context),
             ...card.tickets.map((t) => _ticketSection(context, t)),
           ],
@@ -239,6 +241,30 @@ class _EventPortalCardState extends State<EventPortalCard> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
+  }
+
+  // ── Organizer: Customer Conversations ──────────────────
+
+  Widget _organizerConversationsRow(BuildContext context) {
+    return _collapsedRow(
+      context,
+      icon: Icons.forum_rounded,
+      label: 'Customer Messages',
+      onTap: () => context.push('/chat/organizer-hub/${card.eventId}'),
+      showNavArrow: true,
+    );
+  }
+
+  // ── Organizer: Scanner ────────────────────────────────
+
+  Widget _scannerRow(BuildContext context) {
+    return _collapsedRow(
+      context,
+      icon: Icons.qr_code_scanner_rounded,
+      label: 'Scan Tickets',
+      onTap: () => context.push('/events/${card.eventId}/scanner'),
+      showNavArrow: true,
+    );
   }
 
   // ── Bid Status ────────────────────────────────────────

@@ -70,6 +70,7 @@ void main() async {
       messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
       appId: dotenv.env['FIREBASE_APP_ID']!,
       measurementId: dotenv.env['FIREBASE_MEASUREMENT_ID'],
+      databaseURL: dotenv.env['FIREBASE_DATABASE_URL'],
     ),
   );
 

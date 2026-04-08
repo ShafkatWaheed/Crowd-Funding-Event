@@ -254,6 +254,16 @@ async def publish_event(db: AsyncSession, event_id: int, user: User) -> Event:
         raise ConflictError("Event must have a funding goal or at least one ticket tier before publishing")
 
     await event_repo.update_fields(db, event, status=EventStatus.approved)
+
+    # Auto-create customer announcement channel so organizer can post immediately
+    try:
+        from app.services.chat import channel_service
+        await channel_service.create_channel(
+            db, organizer_id=user.id, event_id=event.id, channel_type="customer"
+        )
+    except Exception:
+        logger.debug("Could not auto-create chat channel for event %d", event.id)
+
     return event
 
 

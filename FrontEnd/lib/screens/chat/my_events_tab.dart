@@ -5,6 +5,8 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/chat.dart';
 import '../../providers/chat_firebase_provider.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/portal/event_portal_card.dart';
 
 /// Full view Portal tab — every row navigates to a full screen.
@@ -22,12 +24,22 @@ class _MyEventsTabState extends State<MyEventsTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatFirebaseProvider>().loadMyEvents();
+      _loadEvents();
     });
   }
 
+  void _loadEvents() {
+    final user = context.read<AuthProvider>().user;
+    final isOrg = user != null && (user.isOrganizer || user.isAdmin);
+    final orgEvents = isOrg ? context.read<EventProvider>().events : null;
+    context.read<ChatFirebaseProvider>().loadMyEvents(organizedEvents: orgEvents);
+  }
+
   Future<void> _refresh() async {
-    await context.read<ChatFirebaseProvider>().loadMyEvents();
+    final user = context.read<AuthProvider>().user;
+    final isOrg = user != null && (user.isOrganizer || user.isAdmin);
+    final orgEvents = isOrg ? context.read<EventProvider>().events : null;
+    await context.read<ChatFirebaseProvider>().loadMyEvents(organizedEvents: orgEvents);
   }
 
   List<MyEventCard> get _filtered {

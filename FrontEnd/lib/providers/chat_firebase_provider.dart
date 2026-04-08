@@ -52,13 +52,32 @@ class ChatFirebaseProvider extends ChangeNotifier {
 
   // ── My Events ─────────────────────────────────────────────
 
-  Future<void> loadMyEvents() async {
+  /// Load events for the Portal tab. Pass [organizedEvents] for organizers
+  /// so their events appear even without registration/tickets.
+  Future<void> loadMyEvents({List<dynamic>? organizedEvents}) async {
     loadingMyEvents = true;
     myEventsError = null;
     notifyListeners();
 
     try {
       final eventMap = <int, _EventCardBuilder>{};
+
+      // 0) Add organizer's events if provided
+      if (organizedEvents != null) {
+        for (final event in organizedEvents) {
+          eventMap.putIfAbsent(
+            event.id as int,
+            () => _EventCardBuilder(
+              eventId: event.id as int,
+              eventTitle: event.title as String,
+              eventStatus: event.status.name as String,
+              startTime: event.startTime as DateTime?,
+              endTime: event.endTime as DateTime?,
+              venueName: event.venue?.name as String?,
+            ),
+          );
+        }
+      }
 
       // 1) Fetch user's registered/pledged/ticketed events
       final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);

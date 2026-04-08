@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/chat.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/chat_firebase_provider.dart';
+import '../../providers/event_provider.dart';
 import '../../widgets/portal/event_portal_card.dart';
 
 /// Show the Portal sheet with a smooth spring animation.
@@ -75,7 +77,10 @@ class _PortalSheetContentState extends State<_PortalSheetContent> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatFirebaseProvider>().loadMyEvents();
+      final user = context.read<AuthProvider>().user;
+      final isOrg = user != null && (user.isOrganizer || user.isAdmin);
+      final orgEvents = isOrg ? context.read<EventProvider>().events : null;
+      context.read<ChatFirebaseProvider>().loadMyEvents(organizedEvents: orgEvents);
     });
   }
 

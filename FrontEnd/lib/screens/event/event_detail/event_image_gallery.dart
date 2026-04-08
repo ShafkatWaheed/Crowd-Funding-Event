@@ -230,7 +230,7 @@ class _EventImageGalleryState extends State<EventImageGallery> {
                             child: GestureDetector(
                               onTap: () async {
                                 if (!await confirmDelete(context, 'image')) return;
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 final repo = context.read<EventProvider>();
                                 await repo.deleteEventImage(
                                     widget.eventId, img.id);

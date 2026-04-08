@@ -90,6 +90,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
 
   Future<void> _deleteTier(int idx) async {
     if (!await confirmDelete(context, 'ticket tier')) return;
+    if (!mounted) return;
     final t = _tiers[idx];
     if (t.id != null) {
       try {

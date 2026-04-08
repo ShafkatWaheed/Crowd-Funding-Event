@@ -24,9 +24,10 @@ class Settings(BaseSettings):
     # Optional: use a separate DB for pytest so tests never truncate real data. If unset, tests use DATABASE_URL (risky).
     TEST_DATABASE_URL: str | None = None
 
-    # Firebase (for ID token verification)
+    # Firebase (for ID token verification + RTDB)
     FIREBASE_PROJECT_ID: str = ""
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
+    FIREBASE_DATABASE_URL: str = ""  # e.g. https://project-id-default-rtdb.firebaseio.com
 
     # CORS: from .env as string (e.g. * or http://localhost:3000,https://app.example.com)
     cors_origins_raw: str = Field(default="*", validation_alias="CORS_ORIGINS")

@@ -134,6 +134,7 @@ class _EditScheduleSectionState extends State<EditScheduleSection> {
 
   Future<void> _deleteItem(int idx) async {
     if (!await confirmDelete(context, 'schedule item')) return;
+    if (!mounted) return;
     final si = _items[idx];
     if (si.id != null) {
       try {

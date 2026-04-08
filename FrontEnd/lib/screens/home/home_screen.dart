@@ -7,6 +7,8 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/chat_firebase_provider.dart';
+import '../chat/my_events_tab.dart' as chat_tab;
 import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/press_feedback.dart';
@@ -18,7 +20,6 @@ import 'tabs/explore_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/manage_tab.dart';
 import 'tabs/my_events_tab.dart';
-import '../profile/my_tickets_screen.dart';
 import 'tabs/organizer_dashboard_tab.dart';
 import 'tabs/sponsor_manage_tab.dart';
 
@@ -199,10 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
               genres: _genres,
               headerIcons: _buildHeaderIcons(hasChatTab),
             ),
-          if (hasChatTab)
+          if (isOrg)
             const ConversationsScreen(embedded: true)
           else
-            const MyTicketsScreen(),
+            const chat_tab.MyEventsTab(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -222,11 +223,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
                 _navItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
                 _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
-                if (hasChatTab)
-                  _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel',
+                if (isOrg)
+                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
                       badge: context.watch<ChatProvider>().totalUnreadCount)
                 else
-                  _navItem(3, Icons.confirmation_number_rounded, Icons.confirmation_number_outlined, 'Tickets'),
+                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
+                      badge: context.watch<ChatFirebaseProvider>().totalUnreadCount),
               ],
             ),
           ),

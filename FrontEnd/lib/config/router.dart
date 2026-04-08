@@ -49,8 +49,12 @@ import '../screens/bookmark/bookmarked_events_screen.dart';
 import '../screens/organizer/faq_screen.dart';
 import '../screens/event/event_faq_screen.dart';
 import '../screens/event/live_poll_screen.dart';
+import '../screens/chat/announcement_channel_screen.dart';
 import '../screens/chat/bid_chat_screen.dart';
 import '../screens/chat/conversations_screen.dart';
+import '../screens/chat/dm_chat_screen.dart';
+import '../screens/chat/organizer_event_chat_hub.dart';
+import '../screens/chat/organizer_inbox_screen.dart';
 import '../screens/home/tabs/profile_tab.dart';
 import '../screens/profile/organizer_profile_screen.dart';
 import '../screens/profile/sponsor_profile_screen.dart';
@@ -438,6 +442,51 @@ GoRouter createRouter(AuthProvider authProvider) {
               isWritable: writable,
               eventId: eventId,
             ),
+          );
+        },
+      ),
+
+      // ─── Firebase Chat (new) ───
+      GoRoute(
+        path: '/chat/channel/:channelId',
+        pageBuilder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          final isOrganizer = state.uri.queryParameters['organizer'] == 'true';
+          return sharedAxisPage(
+            child: AnnouncementChannelScreen(
+              channelId: channelId,
+              isOrganizer: isOrganizer,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/chat/dm/:convId',
+        pageBuilder: (context, state) {
+          final convId = state.pathParameters['convId']!;
+          final name = state.uri.queryParameters['name'];
+          final writable = state.uri.queryParameters['writable'] != 'false';
+          return sharedAxisPage(
+            child: DmChatScreen(
+              conversationId: convId,
+              participantName: name,
+              isWritable: writable,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/chat/organizer-inbox',
+        pageBuilder: (context, state) => sharedAxisPage(
+          child: const OrganizerInboxScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/chat/organizer-hub/:eventId',
+        pageBuilder: (context, state) {
+          final eventId = int.parse(state.pathParameters['eventId']!);
+          return sharedAxisPage(
+            child: OrganizerEventChatHub(eventId: eventId),
           );
         },
       ),

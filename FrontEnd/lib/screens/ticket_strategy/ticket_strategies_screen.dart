@@ -73,6 +73,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
 
   Future<void> _delete(int id) async {
     if (!await confirmDelete(context, 'ticket strategy')) return;
+    if (!mounted) return;
     try {
       final api = context.read<TicketProvider>();
       await api.deleteTicketStrategy(id);

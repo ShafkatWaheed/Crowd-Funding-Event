@@ -77,6 +77,7 @@ class _GlobalDiscountsScreenState extends State<GlobalDiscountsScreen> {
 
   Future<void> _delete(int id) async {
     if (!await confirmDelete(context, 'discount strategy')) return;
+    if (!mounted) return;
     try {
       await context.read<TicketProvider>().deleteDiscountStrategy(id);
       _load();

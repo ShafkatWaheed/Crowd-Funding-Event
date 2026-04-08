@@ -145,6 +145,7 @@ class _PrerequisiteSheetState extends State<PrerequisiteSheet> {
 
   Future<void> _delete(int prereqId) async {
     if (!await confirmDelete(context, 'requirement')) return;
+    if (!mounted) return;
     try {
       final api = context.read<SponsorProvider>();
       await api.deletePrerequisite(widget.eventId, widget.categoryId, prereqId);

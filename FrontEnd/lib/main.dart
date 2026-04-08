@@ -23,6 +23,8 @@ import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/config_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/chat_firebase_provider.dart';
+import 'repositories/chat_firebase_repository.dart';
 import 'providers/notification_provider.dart';
 import 'providers/pledge_provider.dart';
 import 'providers/admin_provider.dart';
@@ -122,6 +124,7 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         Provider<PollRepository>(create: (ctx) => PollRepository(ctx.read<Dio>())),
         Provider<NotificationRepository>(create: (ctx) => NotificationRepository(ctx.read<Dio>())),
         Provider<ChatRepository>(create: (ctx) => ChatRepository(ctx.read<Dio>())),
+        Provider<ChatFirebaseRepository>(create: (ctx) => ChatFirebaseRepository(ctx.read<Dio>())),
         Provider<AdminRepository>(create: (ctx) => AdminRepository(ctx.read<Dio>())),
         Provider<PaymentRepository>(create: (ctx) => PaymentRepository(ctx.read<Dio>())),
         Provider<ChatSocketService>.value(value: _chatSocket),
@@ -147,6 +150,7 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         ChangeNotifierProvider(create: (ctx) => BookmarkProvider(ctx.read<BookmarkRepository>())),
         ChangeNotifierProvider(create: (ctx) => FaqProvider(ctx.read<FaqRepository>())),
         ChangeNotifierProvider(create: (ctx) => PollProvider(ctx.read<PollRepository>())),
+        ChangeNotifierProvider(create: (ctx) => ChatFirebaseProvider(ctx.read<ChatFirebaseRepository>())),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),

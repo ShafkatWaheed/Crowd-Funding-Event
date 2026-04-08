@@ -128,6 +128,7 @@ class _EventFeedSectionState extends State<EventFeedSection> {
 
   Future<void> _deletePost(int postId) async {
     if (!await confirmDelete(context, 'post')) return;
+    if (!mounted) return;
     try {
       final repo = context.read<EventProvider>();
       await repo.deleteEventPost(widget.eventId, postId);

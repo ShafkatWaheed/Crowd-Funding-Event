@@ -84,6 +84,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
 
   Future<void> _deleteMilestone(int idx) async {
     if (!await confirmDelete(context, 'milestone')) return;
+    if (!mounted) return;
     final ms = _milestones[idx];
     if (ms.id != null) {
       try {

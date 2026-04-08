@@ -696,6 +696,15 @@ class EventRepository(BaseRepository[Event]):
         result = await db.execute(q)
         return list(result.scalars().unique().all())
 
+    async def get_co_organizer_ids(
+        self, db: AsyncSession, event_id: int
+    ) -> list[int]:
+        """Return user IDs of all co-organizers for an event."""
+        q = select(EventOrganizer.user_id).where(
+            EventOrganizer.event_id == event_id,
+        )
+        return list((await db.execute(q)).scalars().all())
+
     async def get_co_organizer(
         self, db: AsyncSession, event_id: int, user_id: int
     ) -> EventOrganizer | None:

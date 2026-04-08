@@ -1,4 +1,4 @@
-/// Models for Firebase RTDB chat: channels, posts, conversations, DMs.
+// Models for Firebase RTDB chat: channels, posts, conversations, DMs.
 import 'ticket.dart';
 
 // ── Announcement Channels ───────────────────────────────────

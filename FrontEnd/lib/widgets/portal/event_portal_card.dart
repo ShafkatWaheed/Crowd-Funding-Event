@@ -67,7 +67,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _header(context),
-            if (card.channel != null) _announcementSection(context),
+            if (card.channel != null || card.isOrganizer) _announcementSection(context),
             if (!card.isOrganizer) _chatSection(context),
             if (card.isOrganizer) _organizerConversationsRow(context),
             if (card.isOrganizer) _scannerRow(context),
@@ -145,7 +145,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
   // ── Announcements ─────────────────────────────────────
 
   Widget _announcementSection(BuildContext context) {
-    final expanded = inlineMode && _isExpanded('announcements');
+    final channelId = card.channel?.channelId ?? 'event_${card.eventId}_customer';
+    final isOrgView = card.isOrganizer;
+    final expanded = inlineMode && _isExpanded('announcements') && card.channel != null;
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOutCubic,
@@ -159,8 +162,8 @@ class _EventPortalCardState extends State<EventPortalCard> {
               color: AppTheme.accentColor,
               unread: card.channelUnreadCount,
               child: _AnnouncementExpanded(
-                channelId: card.channel!.channelId,
-                onViewAll: () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+                channelId: channelId,
+                onViewAll: () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               ),
             )
           : _collapsedRow(
@@ -169,8 +172,8 @@ class _EventPortalCardState extends State<EventPortalCard> {
               label: 'Announcements',
               unread: card.channelUnreadCount,
               onTap: inlineMode
-                  ? () => onToggleExpand?.call(_key('announcements'))
-                  : () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+                  ? (card.channel != null ? () => onToggleExpand?.call(_key('announcements')) : null)
+                  : () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               showNavArrow: !inlineMode,
             ),
     );
@@ -284,7 +287,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   Widget _scannerRow(BuildContext context) {
     return InkWell(
-      onTap: () => context.push('/events/${card.eventId}/scanner'),
+      onTap: () => context.push('/events/${card.eventId}/scan?title=${Uri.encodeComponent(card.eventTitle)}'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
         decoration: BoxDecoration(

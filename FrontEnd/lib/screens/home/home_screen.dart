@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel',
                       badge: context.watch<ChatProvider>().totalUnreadCount)
                 else
-                  _navItem(3, Icons.event_note_rounded, Icons.event_note_outlined, 'My Events',
+                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
                       badge: context.watch<ChatFirebaseProvider>().totalUnreadCount),
               ],
             ),

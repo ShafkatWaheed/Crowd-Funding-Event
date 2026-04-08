@@ -110,11 +110,11 @@ void main() {
       );
       await tester.pump();
 
-      // Bottom nav should contain: Home, Explore, Manage, My Events
+      // Bottom nav should contain: Home, Explore, Manage, Portal
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Manage'), findsOneWidget);
-      expect(find.text('My Events'), findsOneWidget);
+      expect(find.text('Portal'), findsOneWidget);
       // Customer should NOT see Channel tab
       expect(find.text('Channel'), findsNothing);
 

@@ -9,6 +9,42 @@ import '../../../config/design_tokens.dart';
 import '../../../config/theme.dart';
 import '../../../models/event.dart';
 
+/// Decorative colours for the static map placeholder illustration.
+/// These are not semantic tokens — they represent water, parks, roads, and
+/// buildings in a stylised mini-map drawn when no real coordinates are available.
+class _MapColors {
+  _MapColors._();
+
+  // Background / base
+  static Color base(bool isDark) =>
+      isDark ? const Color(0xFF111C2E) : const Color(0xFFE8EEDE);
+
+  // Water area
+  static Color water(bool isDark) => isDark
+      ? const Color(0xFF0E1A30)
+      : const Color(0xFF8CB4F0).withValues(alpha: 0.55);
+
+  // Park fill + border
+  static Color park(bool isDark) => isDark
+      ? const Color(0xFF1E4020).withValues(alpha: 0.75)
+      : const Color(0xFF8CC364).withValues(alpha: 0.50);
+  static Color parkBorder(bool isDark) => isDark
+      ? const Color(0xFF2E6030).withValues(alpha: 0.45)
+      : const Color(0xFF64AA46).withValues(alpha: 0.35);
+
+  // Building blocks
+  static Color block(bool isDark) => isDark
+      ? const Color(0xFF162236).withValues(alpha: 0.90)
+      : const Color(0xFFC8D7B4).withValues(alpha: 0.75);
+
+  // Roads
+  static Color roadMain(bool isDark) =>
+      isDark ? const Color(0xFF253550) : Colors.white.withValues(alpha: 0.93);
+  static Color roadSecondary(bool isDark) => isDark
+      ? const Color(0xFF1E2D46).withValues(alpha: 0.88)
+      : Colors.white.withValues(alpha: 0.70);
+}
+
 class GettingThereCard extends StatefulWidget {
   final Event event;
 
@@ -41,9 +77,8 @@ class _GettingThereCardState extends State<GettingThereCard> {
     final lat = venue?.lat;
     final lng = venue?.lng;
     final fadeTo =
-        (isDark ? const Color(0xFF1C1C1E) : Colors.white).withValues(alpha: 0.65);
-    final pinColor =
-        isDark ? const Color(0xFFEF5350) : const Color(0xFFE11900);
+        AppTheme.cardOf(context).withValues(alpha: 0.65);
+    final pinColor = AppTheme.errorOf(context);
 
     if (lat != null && lng != null) {
       final token = dotenv.env['MAPBOX_ACCESS_TOKEN'] ?? '';
@@ -115,24 +150,13 @@ class _GettingThereCardState extends State<GettingThereCard> {
     return LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
       const h = 130.0;
-      final base = isDark ? const Color(0xFF111C2E) : const Color(0xFFE8EEDE);
-      final water = isDark
-          ? const Color(0xFF0E1A30)
-          : const Color(0xFF8CB4F0).withValues(alpha: 0.55);
-      final park = isDark
-          ? const Color(0xFF1E4020).withValues(alpha: 0.75)
-          : const Color(0xFF8CC364).withValues(alpha: 0.50);
-      final parkBorder = isDark
-          ? const Color(0xFF2E6030).withValues(alpha: 0.45)
-          : const Color(0xFF64AA46).withValues(alpha: 0.35);
-      final block = isDark
-          ? const Color(0xFF162236).withValues(alpha: 0.90)
-          : const Color(0xFFC8D7B4).withValues(alpha: 0.75);
-      final roadMain =
-          isDark ? const Color(0xFF253550) : Colors.white.withValues(alpha: 0.93);
-      final roadSec = isDark
-          ? const Color(0xFF1E2D46).withValues(alpha: 0.88)
-          : Colors.white.withValues(alpha: 0.70);
+      final base = _MapColors.base(isDark);
+      final water = _MapColors.water(isDark);
+      final park = _MapColors.park(isDark);
+      final parkBorder = _MapColors.parkBorder(isDark);
+      final block = _MapColors.block(isDark);
+      final roadMain = _MapColors.roadMain(isDark);
+      final roadSec = _MapColors.roadSecondary(isDark);
 
       const blocks = [
         [0.58, 0.08, 0.16, 0.22],
@@ -286,7 +310,7 @@ class _GettingThereCardState extends State<GettingThereCard> {
           width: double.infinity,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            color: AppTheme.cardOf(context),
             borderRadius: AppRadius.lg,
             boxShadow: AppShadow.card(isDark),
             border: isDark

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -47,6 +49,7 @@ class ExploreTab extends StatefulWidget {
 
 class _ExploreTabState extends State<ExploreTab> {
   final _searchController = TextEditingController();
+  Timer? _debounce;
   String? _selectedStatus;
   String? _selectedRegType;
   String? _selectedGenre;
@@ -101,35 +104,40 @@ class _ExploreTabState extends State<ExploreTab> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _applyFilters() {
-    final auth = context.read<AuthProvider>();
-    final user = auth.user;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      final user = auth.user;
 
-    final filters = EventFilters(
-      search: _searchController.text.isNotEmpty ? _searchController.text : null,
-      status: _selectedStatus,
-      registrationType: _selectedRegType,
-      dateFrom: _dateFrom?.toIso8601String(),
-      dateTo: _dateTo?.toIso8601String(),
-      hasFunding: _hasFunding,
-      genre: _selectedGenre,
-      city: _selectedCity,
-      includeAllStatuses:
-          user != null && (user.isOrganizer || user.isAdmin) ? true : null,
-      organizerId:
-          user != null && user.isOrganizer ? user.id : null,
-      sponsorshipOnly:
-          user != null && user.isSponsor && !(user.isOrganizer || user.isAdmin)
-              ? true
-              : null,
-    );
+      final filters = EventFilters(
+        search:
+            _searchController.text.isNotEmpty ? _searchController.text : null,
+        status: _selectedStatus,
+        registrationType: _selectedRegType,
+        dateFrom: _dateFrom?.toIso8601String(),
+        dateTo: _dateTo?.toIso8601String(),
+        hasFunding: _hasFunding,
+        genre: _selectedGenre,
+        city: _selectedCity,
+        includeAllStatuses:
+            user != null && (user.isOrganizer || user.isAdmin) ? true : null,
+        organizerId: user != null && user.isOrganizer ? user.id : null,
+        sponsorshipOnly:
+            user != null && user.isSponsor && !(user.isOrganizer || user.isAdmin)
+                ? true
+                : null,
+      );
 
-    context.read<EventProvider>().loadEvents(filters: filters);
+      context.read<EventProvider>().loadEvents(filters: filters);
+    });
   }
 
   void _clearFilters() {
@@ -365,7 +373,7 @@ class _ExploreTabState extends State<ExploreTab> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 36,
+                          height: AppSpacing.chipRowHeight,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
                             children: _visibleStatuses.map((s) {
@@ -395,8 +403,8 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                       AppSpacing.hSm,
                       Container(
-                        height: 34,
-                        width: 34,
+                        height: AppSpacing.chipRowHeight,
+                        width: AppSpacing.chipRowHeight,
                         decoration: BoxDecoration(
                           color: _showAdvanced
                               ? AppTheme.primaryColor
@@ -418,7 +426,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                       AppSpacing.hXs,
                       SizedBox(
-                        height: 34,
+                        height: AppSpacing.chipRowHeight,
                         child: ElevatedButton(
                           onPressed: _applyFilters,
                           style: ElevatedButton.styleFrom(

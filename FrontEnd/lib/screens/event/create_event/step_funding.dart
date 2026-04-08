@@ -87,6 +87,13 @@ class StepFunding extends StatelessWidget {
                         prefixIcon: Icon(Icons.flag_rounded, size: 20),
                         prefixText: '\$ '),
                     keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return null; // optional field
+                      final n = double.tryParse(v);
+                      if (n == null) return 'Enter a valid number';
+                      if (n < 0) return 'Must be positive';
+                      return null;
+                    },
                   ),
 
                   if (localTiers.isNotEmpty) ...[
@@ -119,6 +126,13 @@ class StepFunding extends StatelessWidget {
                           prefixIcon: Icon(Icons.savings_rounded, size: 20),
                           prefixText: '\$ '),
                       keyboardType: TextInputType.number,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return null; // has default
+                        final n = double.tryParse(v);
+                        if (n == null) return 'Enter a valid number';
+                        if (n <= 0) return 'Must be greater than \$0';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     FundingSpotLimitToggle(

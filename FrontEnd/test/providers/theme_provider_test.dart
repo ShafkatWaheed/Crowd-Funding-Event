@@ -12,17 +12,18 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('initial mode is light', () {
+    test('initial mode is dark', () {
       final provider = ThemeProvider();
-      expect(provider.mode, ThemeMode.light);
-      expect(provider.isDark, false);
-    });
-
-    test('setMode changes to dark', () async {
-      final provider = ThemeProvider();
-      await provider.setMode(ThemeMode.dark);
       expect(provider.mode, ThemeMode.dark);
       expect(provider.isDark, true);
+    });
+
+    testWidgets('setMode changes to light', (tester) async {
+      final provider = ThemeProvider();
+      await tester.pump(); // let _load() settle
+      await provider.setMode(ThemeMode.light);
+      expect(provider.mode, ThemeMode.light);
+      expect(provider.isDark, false);
     });
 
     test('setMode changes to system', () async {
@@ -37,22 +38,13 @@ void main() {
       var notifyCount = 0;
       provider.addListener(() => notifyCount++);
 
-      await provider.setMode(ThemeMode.light); // already light
+      await provider.setMode(ThemeMode.dark); // already dark
       expect(notifyCount, 0);
     });
 
-    test('toggle switches light to dark', () async {
+    testWidgets('toggle switches dark to light', (tester) async {
       final provider = ThemeProvider();
-      expect(provider.isDark, false);
-
-      await provider.toggle();
-      expect(provider.isDark, true);
-      expect(provider.mode, ThemeMode.dark);
-    });
-
-    test('toggle switches dark to light', () async {
-      final provider = ThemeProvider();
-      await provider.setMode(ThemeMode.dark);
+      await tester.pump(); // let _load() settle
       expect(provider.isDark, true);
 
       await provider.toggle();
@@ -60,12 +52,23 @@ void main() {
       expect(provider.mode, ThemeMode.light);
     });
 
+    testWidgets('toggle switches light to dark', (tester) async {
+      final provider = ThemeProvider();
+      await tester.pump(); // let _load() settle
+      await provider.setMode(ThemeMode.light);
+      expect(provider.isDark, false);
+
+      await provider.toggle();
+      expect(provider.isDark, true);
+      expect(provider.mode, ThemeMode.dark);
+    });
+
     test('persists to SharedPreferences', () async {
       final provider = ThemeProvider();
-      await provider.setMode(ThemeMode.dark);
+      await provider.setMode(ThemeMode.light);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('theme_mode'), 'dark');
+      expect(prefs.getString('theme_mode'), 'light');
     });
 
     testWidgets('loads persisted value from SharedPreferences', (tester) async {

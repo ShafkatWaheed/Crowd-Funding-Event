@@ -94,7 +94,7 @@ EventCreateRequest buildCreateEventPayload({
   );
 }
 
-Future<int> executeCreateEventSubmission({
+Future<({int eventId, List<String> warnings})> executeCreateEventSubmission({
   required SponsorProvider sponsorRepo,
   required EventProvider eventRepo,
   required TicketProvider ticketRepo,
@@ -111,27 +111,31 @@ Future<int> executeCreateEventSubmission({
 }) async {
   final resp = await eventRepo.createEventRaw(eventData);
   final eventId = resp.id;
+  final errors = <String>[];
 
-  await _attachDiscounts(ticketRepo, eventId, selectedDiscounts);
-  await _createTiers(ticketRepo, eventId, localTiers);
-  await _createMilestones(eventRepo, ticketRepo, eventId, milestones);
-  await _createEarlyBirdDiscounts(ticketRepo, eventId, earlyBirdDiscounts);
-  if (hasSchedule) await _createSchedule(eventRepo, eventId, scheduleDays);
-  await _createSponsorCategories(sponsorRepo, eventId, localCategories);
-  await _uploadImages(eventRepo, eventId, pickedImages, imageBytes);
+  await _attachDiscounts(ticketRepo, eventId, selectedDiscounts, errors);
+  await _createTiers(ticketRepo, eventId, localTiers, errors);
+  await _createMilestones(eventRepo, ticketRepo, eventId, milestones, errors);
+  await _createEarlyBirdDiscounts(ticketRepo, eventId, earlyBirdDiscounts, errors);
+  if (hasSchedule) await _createSchedule(eventRepo, eventId, scheduleDays, errors);
+  await _createSponsorCategories(sponsorRepo, eventId, localCategories, errors);
+  await _uploadImages(eventRepo, eventId, pickedImages, imageBytes, errors);
 
-  return eventId;
+  return (eventId: eventId, warnings: errors);
 }
 
-Future<void> _attachDiscounts(TicketProvider ticketRepo, int eventId, Map<int, bool> selectedDiscounts) async {
+Future<void> _attachDiscounts(TicketProvider ticketRepo, int eventId, Map<int, bool> selectedDiscounts, List<String> errors) async {
   for (final entry in selectedDiscounts.entries) {
     try {
       await ticketRepo.attachDiscountStrategy(eventId, entry.key, autoApply: entry.value);
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to attach discount strategy');
+      debugPrint(e.toString());
+    }
   }
 }
 
-Future<void> _createTiers(TicketProvider ticketRepo, int eventId, List<EditableTier> localTiers) async {
+Future<void> _createTiers(TicketProvider ticketRepo, int eventId, List<EditableTier> localTiers, List<String> errors) async {
   for (int i = 0; i < localTiers.length; i++) {
     final t = localTiers[i];
     final name = t.nameCtrl.text.trim();
@@ -144,11 +148,14 @@ Future<void> _createTiers(TicketProvider ticketRepo, int eventId, List<EditableT
         description: t.descCtrl.text.trim().isNotEmpty ? t.descCtrl.text.trim() : null,
         maxReservedSpots: t.maxReservedSpots > 0 ? t.maxReservedSpots : null,
       ));
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to create tier "$name"');
+      debugPrint(e.toString());
+    }
   }
 }
 
-Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRepo, int eventId, List<MilestoneInput> milestones) async {
+Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRepo, int eventId, List<MilestoneInput> milestones, List<String> errors) async {
   for (final ms in milestones) {
     final title = ms.titleCtrl.text.trim();
     if (title.isEmpty) continue;
@@ -158,7 +165,10 @@ Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRep
         unlockPercent: ms.unlockPercent,
         benefitDescription: ms.benefitCtrl.text.trim().isNotEmpty ? ms.benefitCtrl.text.trim() : null,
       ));
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to create milestone "$title"');
+      debugPrint(e.toString());
+    }
     final discVal = int.tryParse(ms.discountValueCtrl.text.trim()) ?? 0;
     if (discVal > 0) {
       try {
@@ -170,12 +180,15 @@ Future<void> _createMilestones(EventProvider eventRepo, TicketProvider ticketRep
           milestonePercent: ms.unlockPercent,
           milestoneDiscountValue: discVal,
         ));
-      } catch (e) { debugPrint(e.toString()); }
+      } catch (e) {
+        errors.add('Failed to create milestone "$title" discount');
+        debugPrint(e.toString());
+      }
     }
   }
 }
 
-Future<void> _createEarlyBirdDiscounts(TicketProvider ticketRepo, int eventId, List<EarlyBirdInput> earlyBirdDiscounts) async {
+Future<void> _createEarlyBirdDiscounts(TicketProvider ticketRepo, int eventId, List<EarlyBirdInput> earlyBirdDiscounts, List<String> errors) async {
   for (final eb in earlyBirdDiscounts) {
     final val = int.tryParse(eb.valueCtrl.text.trim()) ?? 0;
     if (val <= 0 || eb.windowEnd == null) continue;
@@ -187,11 +200,14 @@ Future<void> _createEarlyBirdDiscounts(TicketProvider ticketRepo, int eventId, L
         windowStart: eb.windowStart?.toUtc().toIso8601String(),
         windowEnd: eb.windowEnd!.toUtc().toIso8601String(),
       ));
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to create early bird discount');
+      debugPrint(e.toString());
+    }
   }
 }
 
-Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<ScheduleDayInput> scheduleDays) async {
+Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<ScheduleDayInput> scheduleDays, List<String> errors) async {
   if (scheduleDays.isEmpty) return;
   final scheduleItems = <CreateScheduleItemRequest>[];
   final slotsWithImages = <int, ScheduleSlotInput>{};
@@ -244,14 +260,20 @@ Future<void> _createSchedule(EventProvider eventRepo, int eventId, List<Schedule
                 ? slot.imageCaptionCtrl.text.trim()
                 : null,
           );
-        } catch (e) { debugPrint(e.toString()); }
+        } catch (e) {
+          errors.add('Failed to upload schedule image');
+          debugPrint(e.toString());
+        }
       }
     }
-  } catch (e) { debugPrint(e.toString()); }
+  } catch (e) {
+    errors.add('Failed to create schedule');
+    debugPrint(e.toString());
+  }
 }
 
 Future<void> _createSponsorCategories(
-    SponsorProvider sponsorRepo, int eventId, List<EditableSponsorCategory> localCategories) async {
+    SponsorProvider sponsorRepo, int eventId, List<EditableSponsorCategory> localCategories, List<String> errors) async {
   for (final cat in localCategories) {
     final name = cat.nameCtrl.text.trim();
     if (name.isEmpty) continue;
@@ -273,14 +295,20 @@ Future<void> _createSponsorCategories(
               description: p.description,
               isRequired: p.isRequired,
               requiresDocument: p.requiresDocument);
-        } catch (e) { debugPrint(e.toString()); }
+        } catch (e) {
+          errors.add('Failed to add prerequisite');
+          debugPrint(e.toString());
+        }
       }
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to create sponsor category "$name"');
+      debugPrint(e.toString());
+    }
   }
 }
 
 Future<void> _uploadImages(
-    EventProvider eventRepo, int eventId, List<XFile> pickedImages, Map<int, Uint8List> imageBytes) async {
+    EventProvider eventRepo, int eventId, List<XFile> pickedImages, Map<int, Uint8List> imageBytes, List<String> errors) async {
   for (int i = 0; i < pickedImages.length; i++) {
     try {
       final bytes = imageBytes[i] ?? await pickedImages[i].readAsBytes();
@@ -290,6 +318,9 @@ Future<void> _uploadImages(
         fileName: pickedImages[i].name,
         displayOrder: i,
       );
-    } catch (e) { debugPrint(e.toString()); }
+    } catch (e) {
+      errors.add('Failed to upload image ${i + 1}');
+      debugPrint(e.toString());
+    }
   }
 }

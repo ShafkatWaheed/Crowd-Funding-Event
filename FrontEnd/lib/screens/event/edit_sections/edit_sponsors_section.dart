@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../models/sponsor.dart';
 import '../../../providers/sponsor_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EditLocalPrereq {
   String name;
@@ -132,6 +133,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
   }
 
   Future<void> _deleteCategory(int idx) async {
+    if (!await confirmDelete(context, 'sponsor category')) return;
     final sc = _categories[idx];
     if (sc.id != null) {
       try {

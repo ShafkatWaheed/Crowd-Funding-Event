@@ -46,7 +46,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   bool get _showTicketStats =>
       widget.event.status == EventStatus.selling_tickets ||
       widget.event.status == EventStatus.live ||
-      widget.event.status == EventStatus.completed;
+      widget.event.status == EventStatus.completed ||
+      widget.event.status == EventStatus.under_review;
 
   @override
   Widget build(BuildContext context) {
@@ -111,13 +112,20 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                     ),
                   ),
           ),
+          // Lifecycle bar pinned to top of header
+          Positioned(
+            top: AppSpacing.sm,
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
+            child: EventLifecycleBar(event: event, compact: true),
+          ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.md,
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -130,24 +138,36 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  EventLifecycleBar(event: event, compact: true),
                   if ((widget.myPledgeAmountCents ?? 0) > 0 ||
                       (widget.myTicketCount ?? 0) > 0 ||
                       widget.showSponsorBadge) ...[
-                    AppSpacing.vSm,
-                    Row(
-                      children: [
-                        if ((widget.myPledgeAmountCents ?? 0) > 0) ...[
-                          const _HeroChip(label: 'Pledged'),
-                          AppSpacing.hXs,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                            color: AppTheme.successColor.withValues(alpha: 0.3),
+                            width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              size: 9, color: AppTheme.successColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Activity',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
                         ],
-                        if ((widget.myTicketCount ?? 0) > 0) ...[
-                          const _HeroChip(label: 'Attending'),
-                          AppSpacing.hXs,
-                        ],
-                        if (widget.showSponsorBadge)
-                          const _HeroChip(label: 'Sponsored'),
-                      ],
+                      ),
                     ),
                   ],
                   AppSpacing.vSm,
@@ -161,23 +181,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                             _FrostedStatusBadge(status: event.status, hasFunding: event.isFunding),
                             if (event.isPrivate)
                               Icon(Icons.lock_outline, size: 14, color: Colors.white.withValues(alpha: 0.7)),
-                            if (event.ageRestricted)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.errorColor.withValues(alpha: 0.7),
-                                  borderRadius: AppRadius.pill,
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                                ),
-                                child: Text(
-                                  '${event.minAge}+',
-                                  style: AppTypography.labelSmall.copyWith(
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -211,7 +214,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   Widget _buildBody(BuildContext context, Event event, bool isDark) {
     final hasFunding = (event.fundingGoalCents ?? 0) > 0 &&
         event.fundingEndAt != null &&
-        event.status == EventStatus.approved;
+        (event.status == EventStatus.approved ||
+         event.status == EventStatus.under_review);
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -231,14 +235,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               icon: AppIcons.cardLocation.icon,
               text: '${event.venue!.name}, ${event.venue!.city}',
               color: AppIcons.cardLocation.color(isDark),
-            ),
-          ],
-          if (event.genre != null && event.genre!.isNotEmpty) ...[
-            Divider(height: 1, thickness: 0.5, color: AppTheme.dividerOf(context).withValues(alpha: 0.6)),
-            _InfoRow(
-              icon: AppIcons.genreIcon(event.genre!),
-              text: event.genre![0].toUpperCase() + event.genre!.substring(1),
-              color: AppIcons.genreColor(event.genre!, isDark: Theme.of(context).brightness == Brightness.dark),
             ),
           ],
           AppSpacing.vSm,
@@ -293,34 +289,12 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     );
   }
 
-  LinearGradient _statusGradient(EventStatus status) {
-    final colors = AppIcons.forEventStatus(status).gradientColors;
-    return LinearGradient(colors: colors);
+  LinearGradient _statusGradient(EventStatus _) {
+    return AppTheme.darkGradient;
   }
 }
 
 // ─── Activity hero chip ───
-
-class _HeroChip extends StatelessWidget {
-  final String label;
-  const _HeroChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.50),
-        borderRadius: AppRadius.pill,
-      ),
-      child: Text(
-        label,
-        style: AppTypography.badge.copyWith(color: Colors.white),
-      ),
-    );
-  }
-}
 
 // ─── Colored status badge with icon ───
 

@@ -12,9 +12,11 @@ from app.repositories.event_repo import event_repo
 from app.services import event as event_service
 
 
-async def list_posts(db: AsyncSession, *, event_id: int) -> Sequence[EventPost]:
-    """List posts for an event, newest first."""
-    return await event_repo.list_posts(db, event_id)
+async def list_posts(
+    db: AsyncSession, *, event_id: int, offset: int = 0, limit: int = 20,
+) -> Sequence[EventPost]:
+    """List posts for an event, newest first, with pagination."""
+    return await event_repo.list_posts(db, event_id, offset=offset, limit=limit)
 
 
 async def create_post(

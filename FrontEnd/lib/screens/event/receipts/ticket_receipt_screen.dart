@@ -594,7 +594,7 @@ class _TicketReceiptScreenState extends State<TicketReceiptScreen> {
                 label: const Text('Buy Another Ticket',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: context.ticketAccent,
+                  backgroundColor: AppTheme.accentColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),

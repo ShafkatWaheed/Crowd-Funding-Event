@@ -118,13 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [const Color(0xFF0A0A1A), const Color(0xFF121228)]
-                : [const Color(0xFFF0F4FF), const Color(0xFFF8FAFF)],
-          ),
+          gradient: AppTheme.authGradient(isDark),
         ),
         child: Center(
           child: SingleChildScrollView(

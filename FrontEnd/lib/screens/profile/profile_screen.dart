@@ -365,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ProfileHeaderCard(user: user),
-                          const SizedBox(height: 28),
+                          AppSpacing.vXxl,
                           ProfilePersonalInfoSection(
                             nameCtrl: _nameCtrl,
                             phoneCtrl: _phoneCtrl,
@@ -432,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                AppSpacing.vLg,
                                 TextFormField(
                                   controller: _experienceCtrl,
                                   decoration: profileFieldDecoration(
@@ -499,11 +499,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                          const SizedBox(height: 28),
+                          AppSpacing.vXxl,
                           _buildSaveButton(),
                           AppSpacing.vXxl,
                           const ProfileSecuritySection(),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: AppSpacing.huge),
                         ],
                       ),
                     ),

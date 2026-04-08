@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../models/milestone.dart';
 import '../../../providers/event_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EditMilestone {
   int? id;
@@ -82,6 +83,7 @@ class _EditMilestonesSectionState extends State<EditMilestonesSection> {
   }
 
   Future<void> _deleteMilestone(int idx) async {
+    if (!await confirmDelete(context, 'milestone')) return;
     final ms = _milestones[idx];
     if (ms.id != null) {
       try {

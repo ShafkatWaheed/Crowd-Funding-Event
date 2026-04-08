@@ -114,6 +114,9 @@ async def set_event_date_endpoint(
     if new_start is None or new_end is None:
         logger.warning("Set event date rejected: invalid datetime params", extra={"event_id": event_id})
         raise HTTPException(status_code=400, detail="Both start_time and end_time are required as valid ISO datetimes")
+    if new_start >= new_end:
+        logger.warning("Set event date rejected: start >= end", extra={"event_id": event_id})
+        raise HTTPException(status_code=400, detail="start_time must be before end_time")
     event = await event_service.set_event_date(
         db, event, current_user,
         new_start_time=new_start,

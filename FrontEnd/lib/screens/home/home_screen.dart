@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/chat_firebase_provider.dart';
 import '../chat/my_events_tab.dart' as chat_tab;
+import '../chat/portal_sheet.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/press_feedback.dart';
@@ -376,7 +377,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        // (Removed: old behavior opened tickets bottom sheet for customers on tab 3)
+        // Portal tab: non-org users get a sheet first, "Full View" switches to the tab
+        final isOrganizer = user != null && (user.isOrganizer || user.isAdmin);
+        if (index == 3 && !isOrganizer) {
+          showPortalSheet(context, onFullView: () {
+            setState(() => _navIndex = 3);
+          });
+          return;
+        }
         if (_navIndex == index) return;
         setState(() {
           _navIndex = index;

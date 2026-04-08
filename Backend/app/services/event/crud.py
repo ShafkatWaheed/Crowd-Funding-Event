@@ -601,7 +601,19 @@ async def create(
     if reserved_spots_release_percent is not None:
         platform_min = await settings_svc.get_int(db, "reserved_spots_release_percent_min")
         event.reserved_spots_release_percent = max(reserved_spots_release_percent, platform_min)
-    return await event_repo.create_event(db, event)
+    event = await event_repo.create_event(db, event)
+
+    # Auto-create announcement channel if event is published immediately
+    if publish:
+        try:
+            from app.services.chat import channel_service
+            await channel_service.create_channel(
+                db, organizer_id=organizer_id, event_id=event.id, channel_type="customer"
+            )
+        except Exception:
+            logger.debug("Could not auto-create chat channel for event %d", event.id)
+
+    return event
 
 
 async def update(

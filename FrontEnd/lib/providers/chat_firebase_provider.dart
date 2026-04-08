@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/chat.dart';
+import '../models/event.dart';
 import '../models/ticket.dart';
 import '../repositories/chat_firebase_repository.dart';
 import '../repositories/event_repository.dart';
@@ -52,9 +53,9 @@ class ChatFirebaseProvider extends ChangeNotifier {
 
   // ── My Events ─────────────────────────────────────────────
 
-  /// Load events for the Portal tab. Pass [organizedEvents] for organizers
-  /// so their events appear even without registration/tickets.
-  Future<void> loadMyEvents({List<dynamic>? organizedEvents}) async {
+  /// Load events for the Portal tab. Pass [userId] for organizers to fetch
+  /// their organized events directly.
+  Future<void> loadMyEvents({int? userId, bool isOrganizer = false}) async {
     loadingMyEvents = true;
     myEventsError = null;
     notifyListeners();
@@ -62,21 +63,27 @@ class ChatFirebaseProvider extends ChangeNotifier {
     try {
       final eventMap = <int, _EventCardBuilder>{};
 
-      // 0) Add organizer's events if provided
-      if (organizedEvents != null) {
-        for (final event in organizedEvents) {
-          eventMap.putIfAbsent(
-            event.id as int,
-            () => _EventCardBuilder(
-              eventId: event.id as int,
-              eventTitle: event.title as String,
-              eventStatus: event.status.name as String,
-              startTime: event.startTime as DateTime?,
-              endTime: event.endTime as DateTime?,
-              venueName: event.venue?.name as String?,
-            ),
+      // 0) Fetch organizer's own events if applicable
+      if (isOrganizer && userId != null) {
+        try {
+          final orgResult = await _eventRepo.getEvents(
+            filters: EventFilters(organizerId: userId, includeAllStatuses: true),
+            limit: 100,
           );
-        }
+          for (final event in orgResult.items) {
+            eventMap.putIfAbsent(
+              event.id,
+              () => _EventCardBuilder(
+                eventId: event.id,
+                eventTitle: event.title,
+                eventStatus: event.status.name,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                venueName: event.venue?.name,
+              ),
+            );
+          }
+        } catch (_) {}
       }
 
       // 1) Fetch user's registered/pledged/ticketed events

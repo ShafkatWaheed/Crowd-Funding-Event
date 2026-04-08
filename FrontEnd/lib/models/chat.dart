@@ -219,6 +219,9 @@ class MyEventCard {
   /// Tickets the user holds for this event.
   final List<TicketSale> tickets;
 
+  /// Whether the current user is the organizer for this event.
+  final bool isOrganizer;
+
   /// Unread count for the announcement channel.
   final int channelUnreadCount;
 
@@ -234,6 +237,7 @@ class MyEventCard {
     this.conversation,
     this.bidInfo,
     this.tickets = const [],
+    this.isOrganizer = false,
     this.channelUnreadCount = 0,
   });
 

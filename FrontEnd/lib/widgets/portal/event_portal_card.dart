@@ -68,7 +68,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
           children: [
             _header(context),
             if (card.channel != null) _announcementSection(context),
-            _chatSection(context),
+            if (!card.isOrganizer) _chatSection(context),
             if (card.bidInfo != null) _bidRow(context),
             ...card.tickets.map((t) => _ticketSection(context, t)),
           ],

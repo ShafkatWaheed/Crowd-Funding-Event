@@ -79,6 +79,7 @@ class ChatFirebaseProvider extends ChangeNotifier {
                 eventId: event.id,
                 eventTitle: event.title,
                 eventStatus: event.status.name,
+                isOrganizer: true,
                 startTime: event.startTime,
                 endTime: event.endTime,
                 venueName: event.venue?.name,
@@ -314,6 +315,7 @@ class _EventCardBuilder {
   final DateTime? startTime;
   final DateTime? endTime;
   final String? venueName;
+  bool isOrganizer;
   ChatChannel? channel;
   DmConversation? conversation;
   List<TicketSale> tickets = [];
@@ -322,6 +324,7 @@ class _EventCardBuilder {
     required this.eventId,
     required this.eventTitle,
     this.eventStatus = 'selling_tickets',
+    this.isOrganizer = false,
     this.startTime,
     this.endTime,
     this.venueName,
@@ -335,6 +338,7 @@ class _EventCardBuilder {
       startTime: startTime,
       endTime: endTime,
       venueName: venueName,
+      isOrganizer: isOrganizer,
       channel: channel,
       conversation: conversation,
       tickets: tickets,

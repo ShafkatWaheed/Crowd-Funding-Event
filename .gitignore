@@ -1,3 +1,4 @@
+.superpowers/
 Kub_docker/.env
 Kub_docker/*.json
 Kub_docker/**/*.json

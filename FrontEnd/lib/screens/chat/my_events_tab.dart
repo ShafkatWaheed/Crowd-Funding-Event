@@ -128,6 +128,14 @@ class _MyEventsTabState extends State<MyEventsTab> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
             ),
+            if (context.read<ChatFirebaseProvider>().myEventsError != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                context.read<ChatFirebaseProvider>().myEventsError!,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: AppTheme.errorColor),
+              ),
+            ],
           ],
         ),
       ),

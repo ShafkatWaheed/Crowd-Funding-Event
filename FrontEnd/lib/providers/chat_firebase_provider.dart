@@ -60,6 +60,8 @@ class ChatFirebaseProvider extends ChangeNotifier {
     myEventsError = null;
     notifyListeners();
 
+    debugPrint('Portal: loadMyEvents userId=$userId isOrganizer=$isOrganizer');
+
     try {
       final eventMap = <int, _EventCardBuilder>{};
 
@@ -83,37 +85,47 @@ class ChatFirebaseProvider extends ChangeNotifier {
               ),
             );
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Portal: failed to load organizer events: $e');
+        }
       }
 
       // 1) Fetch user's registered/pledged/ticketed events
-      final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);
-      for (final event in myEvents) {
-        eventMap.putIfAbsent(
-          event.id,
-          () => _EventCardBuilder(
-            eventId: event.id,
-            eventTitle: event.title,
-            eventStatus: event.status.name,
-            startTime: event.startTime,
-            endTime: event.endTime,
-            venueName: event.venue?.name,
-          ),
-        );
+      try {
+        final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);
+        for (final event in myEvents) {
+          eventMap.putIfAbsent(
+            event.id,
+            () => _EventCardBuilder(
+              eventId: event.id,
+              eventTitle: event.title,
+              eventStatus: event.status.name,
+              startTime: event.startTime,
+              endTime: event.endTime,
+              venueName: event.venue?.name,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Portal: failed to load my events: $e');
       }
 
       // 2) Fetch user's tickets grouped by event
-      final ticketResult = await _ticketRepo.getMyTickets(offset: 0, limit: 200);
-      for (final ticket in ticketResult.items) {
-        final builder = eventMap.putIfAbsent(
-          ticket.eventId,
-          () => _EventCardBuilder(
-            eventId: ticket.eventId,
-            eventTitle: ticket.eventTitle ?? 'Event #${ticket.eventId}',
-            eventStatus: ticket.eventStatus ?? 'selling_tickets',
-          ),
-        );
-        builder.tickets.add(ticket);
+      try {
+        final ticketResult = await _ticketRepo.getMyTickets(offset: 0, limit: 200);
+        for (final ticket in ticketResult.items) {
+          final builder = eventMap.putIfAbsent(
+            ticket.eventId,
+            () => _EventCardBuilder(
+              eventId: ticket.eventId,
+              eventTitle: ticket.eventTitle ?? 'Event #${ticket.eventId}',
+              eventStatus: ticket.eventStatus ?? 'selling_tickets',
+            ),
+          );
+          builder.tickets.add(ticket);
+        }
+      } catch (e) {
+        debugPrint('Portal: failed to load tickets: $e');
       }
 
       // 3) Fetch user's conversations (DMs)
@@ -162,8 +174,10 @@ class ChatFirebaseProvider extends ChangeNotifier {
         final bTime = b.startTime?.millisecondsSinceEpoch ?? 0;
         return aTime.compareTo(bTime);
       });
+      debugPrint('Portal: built ${myEventCards.length} cards');
     } catch (e) {
       myEventsError = e.toString();
+      debugPrint('Portal: loadMyEvents error: $e');
     }
 
     loadingMyEvents = false;

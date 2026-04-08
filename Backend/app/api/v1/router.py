@@ -3,7 +3,7 @@ Aggregates all v1 API routers.
 """
 from fastapi import APIRouter
 
-from app.api.v1 import auth, users, venues, map_, admin, ticket_strategies, discount_strategies, milestones, schedule, sponsors, public_profiles, ratings, notifications, config, banking, webhooks, chat, organizer_faq, event_polls
+from app.api.v1 import auth, users, venues, map_, admin, ticket_strategies, discount_strategies, milestones, schedule, sponsors, public_profiles, ratings, notifications, config, banking, webhooks, chat, organizer_faq, event_polls, chat_channels, chat_conversations
 from app.api.v1.events import router as events_router
 
 api_router = APIRouter()
@@ -34,3 +34,5 @@ api_router.include_router(banking.router, prefix="", tags=["banking"])
 api_router.include_router(webhooks.router, prefix="", tags=["webhooks"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(event_polls.router, prefix="/events", tags=["polls"])
+api_router.include_router(chat_channels.router, prefix="", tags=["chat-channels"])
+api_router.include_router(chat_conversations.router, prefix="", tags=["chat-conversations"])

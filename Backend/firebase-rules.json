@@ -1,0 +1,85 @@
+{
+  "rules": {
+    "crowd_funding_chat": {
+      "channels": {
+        "$channel_id": {
+          ".read": "root.child('crowd_funding_chat/channel_members/' + $channel_id + '/' + auth.uid).exists()",
+          ".write": false
+        }
+      },
+      "posts": {
+        "$channel_id": {
+          ".read": "root.child('crowd_funding_chat/channel_members/' + $channel_id + '/' + auth.uid).exists()",
+          ".write": false
+        }
+      },
+      "reaction_shards": {
+        "$channel_id": {
+          "$post_id": {
+            "$shard": {
+              ".read": false,
+              ".write": "root.child('crowd_funding_chat/channel_members/' + $channel_id + '/' + auth.uid).exists() && root.child('crowd_funding_chat/channels/' + $channel_id + '/status').val() == 'open'"
+            }
+          }
+        }
+      },
+      "user_reactions": {
+        "$channel_id": {
+          "$post_id": {
+            "$uid": {
+              ".read": "auth.uid == $uid",
+              ".write": "auth.uid == $uid && root.child('crowd_funding_chat/channel_members/' + $channel_id + '/' + auth.uid).exists() && root.child('crowd_funding_chat/channels/' + $channel_id + '/status').val() == 'open'"
+            }
+          }
+        }
+      },
+      "channel_members": {
+        "$channel_id": {
+          "$uid": {
+            ".read": "auth.uid == $uid",
+            ".write": false
+          }
+        }
+      },
+      "channel_read_cursors": {
+        "$channel_id": {
+          "$uid": {
+            ".read": "auth.uid == $uid",
+            ".write": "auth.uid == $uid && root.child('crowd_funding_chat/channel_members/' + $channel_id + '/' + auth.uid).exists()"
+          }
+        }
+      },
+      "conversations": {
+        "$conv_id": {
+          ".read": "root.child('crowd_funding_chat/user_conversations/' + auth.uid + '/' + $conv_id).exists()",
+          ".write": false,
+          "unread": {
+            "$uid": {
+              ".write": "auth.uid == $uid && root.child('crowd_funding_chat/user_conversations/' + auth.uid + '/' + $conv_id).exists()"
+            }
+          }
+        }
+      },
+      "messages": {
+        "$conv_id": {
+          ".read": "root.child('crowd_funding_chat/user_conversations/' + auth.uid + '/' + $conv_id).exists()",
+          ".write": "root.child('crowd_funding_chat/user_conversations/' + auth.uid + '/' + $conv_id).exists() && root.child('crowd_funding_chat/conversations/' + $conv_id + '/status').val() == 'open'"
+        }
+      },
+      "user_conversations": {
+        "$uid": {
+          ".read": "auth.uid == $uid",
+          ".write": false
+        }
+      },
+      "typing": {
+        "$conv_id": {
+          "$uid": {
+            ".read": "root.child('crowd_funding_chat/user_conversations/' + auth.uid + '/' + $conv_id).exists()",
+            ".write": "auth.uid == $uid"
+          }
+        }
+      }
+    }
+  }
+}

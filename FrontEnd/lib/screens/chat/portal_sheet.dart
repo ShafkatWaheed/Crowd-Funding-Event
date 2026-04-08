@@ -5,15 +5,56 @@ import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../models/chat.dart';
 import '../../providers/chat_firebase_provider.dart';
-import '../../widgets/app_bottom_sheet.dart';
 import '../../widgets/portal/event_portal_card.dart';
 
-/// Show the Portal sheet. [onFullView] is called when user taps "Full View".
+/// Show the Portal sheet with a smooth spring animation.
+/// [onFullView] is called when user taps "Full View".
 Future<void> showPortalSheet(BuildContext context, {VoidCallback? onFullView}) {
-  return showAppBottomSheet(
+  return showModalBottomSheet(
     context: context,
-    maxHeightFraction: 0.88,
-    builder: (_) => _PortalSheetContent(onFullView: onFullView),
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black54,
+    useSafeArea: true,
+    builder: (ctx) {
+      return AnimatedPadding(
+        duration: const Duration(milliseconds: 100),
+        padding: EdgeInsets.only(top: MediaQuery.of(ctx).size.height * 0.08),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.cardOf(ctx),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.xs),
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.dividerOf(ctx),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Flexible(child: _PortalSheetContent(onFullView: onFullView)),
+            ],
+          ),
+        ),
+      );
+    },
   );
 }
 

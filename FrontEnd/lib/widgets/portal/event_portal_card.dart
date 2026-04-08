@@ -13,7 +13,7 @@ import '../../providers/chat_firebase_provider.dart';
 import '../../repositories/chat_firebase_repository.dart';
 
 /// A single event card used in both Portal sheet (inline expand) and full view (navigate away).
-class EventPortalCard extends StatelessWidget {
+class EventPortalCard extends StatefulWidget {
   final MyEventCard card;
 
   /// If true, tapping rows expands inline (sheet mode). If false, rows navigate to full screens.
@@ -33,12 +33,23 @@ class EventPortalCard extends StatelessWidget {
     this.onToggleExpand,
   });
 
+  @override
+  State<EventPortalCard> createState() => _EventPortalCardState();
+}
+
+class _EventPortalCardState extends State<EventPortalCard> {
+  MyEventCard get card => widget.card;
+  bool get inlineMode => widget.inlineMode;
+  String? get expandedKey => widget.expandedKey;
+  ValueChanged<String>? get onToggleExpand => widget.onToggleExpand;
+
   String _key(String section) => '${card.eventId}_$section';
   bool _isExpanded(String section) => expandedKey == _key(section);
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
       opacity: card.isCompleted ? 0.5 : 1.0,
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -132,29 +143,34 @@ class EventPortalCard extends StatelessWidget {
   // ── Announcements ─────────────────────────────────────
 
   Widget _announcementSection(BuildContext context) {
-    if (inlineMode && _isExpanded('announcements')) {
-      return _expandedSection(
-        context,
-        key: 'announcements',
-        icon: Icons.campaign_rounded,
-        label: 'Announcements',
-        color: AppTheme.accentColor,
-        unread: card.channelUnreadCount,
-        child: _AnnouncementExpanded(
-          channelId: card.channel!.channelId,
-          onViewAll: () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
-        ),
-      );
-    }
-    return _collapsedRow(
-      context,
-      icon: Icons.campaign_rounded,
-      label: 'Announcements',
-      unread: card.channelUnreadCount,
-      onTap: inlineMode
-          ? () => onToggleExpand?.call(_key('announcements'))
-          : () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
-      showNavArrow: !inlineMode,
+    final expanded = inlineMode && _isExpanded('announcements');
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? _expandedSection(
+              context,
+              key: 'announcements',
+              icon: Icons.campaign_rounded,
+              label: 'Announcements',
+              color: AppTheme.accentColor,
+              unread: card.channelUnreadCount,
+              child: _AnnouncementExpanded(
+                channelId: card.channel!.channelId,
+                onViewAll: () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+              ),
+            )
+          : _collapsedRow(
+              context,
+              icon: Icons.campaign_rounded,
+              label: 'Announcements',
+              unread: card.channelUnreadCount,
+              onTap: inlineMode
+                  ? () => onToggleExpand?.call(_key('announcements'))
+                  : () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+              showNavArrow: !inlineMode,
+            ),
     );
   }
 
@@ -163,47 +179,51 @@ class EventPortalCard extends StatelessWidget {
   Widget _chatSection(BuildContext context) {
     final conv = card.conversation;
     final hasConv = conv != null;
+    final expanded = inlineMode && _isExpanded('chat') && hasConv;
 
-    if (inlineMode && _isExpanded('chat') && hasConv) {
-      return _expandedSection(
-        context,
-        key: 'chat',
-        icon: Icons.chat_bubble_outline_rounded,
-        label: 'Chat with Organizer',
-        color: AppTheme.textSecondaryOf(context),
-        unread: conv.unreadCount,
-        child: _ChatExpanded(
-          conversationId: conv.conversationId,
-          onViewAll: () => context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}'),
-        ),
-      );
-    }
-
-    return _collapsedRow(
-      context,
-      icon: Icons.chat_bubble_outline_rounded,
-      label: hasConv ? 'Chat with Organizer' : 'Message Organizer',
-      unread: conv?.unreadCount ?? 0,
-      trailing: !hasConv
-          ? Text('New', style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600))
-          : null,
-      meta: hasConv ? conv.lastMessageText : null,
-      onTap: inlineMode
-          ? () {
-              if (hasConv) {
-                onToggleExpand?.call(_key('chat'));
-              } else {
-                _initConversation(context);
-              }
-            }
-          : () {
-              if (hasConv) {
-                context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
-              } else {
-                _initConversation(context);
-              }
-            },
-      showNavArrow: !inlineMode && hasConv,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? _expandedSection(
+              context,
+              key: 'chat',
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Chat with Organizer',
+              color: AppTheme.textSecondaryOf(context),
+              unread: conv.unreadCount,
+              child: _ChatExpanded(
+                conversationId: conv.conversationId,
+                onViewAll: () => context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}'),
+              ),
+            )
+          : _collapsedRow(
+              context,
+              icon: Icons.chat_bubble_outline_rounded,
+              label: hasConv ? 'Chat with Organizer' : 'Message Organizer',
+              unread: conv?.unreadCount ?? 0,
+              trailing: !hasConv
+                  ? Text('New', style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600))
+                  : null,
+              meta: hasConv ? conv.lastMessageText : null,
+              onTap: inlineMode
+                  ? () {
+                      if (hasConv) {
+                        onToggleExpand?.call(_key('chat'));
+                      } else {
+                        _initConversation(context);
+                      }
+                    }
+                  : () {
+                      if (hasConv) {
+                        context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                      } else {
+                        _initConversation(context);
+                      }
+                    },
+              showNavArrow: !inlineMode && hasConv,
+            ),
     );
   }
 
@@ -257,33 +277,37 @@ class EventPortalCard extends StatelessWidget {
     final isScanned = ticket.scannedAt != null;
     final code = ticket.ticketCode;
     final tierName = ticket.tierName ?? 'Ticket';
+    final expanded = inlineMode && _isExpanded('ticket_${ticket.id}');
 
-    if (inlineMode && _isExpanded('ticket_${ticket.id}')) {
-      return _expandedSection(
-        context,
-        key: 'ticket_${ticket.id}',
-        icon: Icons.confirmation_number_rounded,
-        label: '$tierName — #$code',
-        color: AppTheme.successColor,
-        child: _TicketExpanded(
-          ticket: ticket,
-          onFullDetails: () => context.push('/tickets/${ticket.id}'),
-        ),
-      );
-    }
-
-    return Opacity(
-      opacity: isScanned ? 0.45 : 1.0,
-      child: _collapsedRow(
-        context,
-        icon: Icons.confirmation_number_rounded,
-        label: '$tierName — #$code${isScanned ? ' ✓' : ''}',
-        meta: isScanned ? 'Scanned' : null,
-        onTap: inlineMode
-            ? () => onToggleExpand?.call(_key('ticket_${ticket.id}'))
-            : () => context.push('/tickets/${ticket.id}'),
-        showNavArrow: !inlineMode && !isScanned,
-      ),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? _expandedSection(
+              context,
+              key: 'ticket_${ticket.id}',
+              icon: Icons.confirmation_number_rounded,
+              label: '$tierName — #$code',
+              color: AppTheme.successColor,
+              child: _TicketExpanded(
+                ticket: ticket,
+                onFullDetails: () => context.push('/tickets/${ticket.id}'),
+              ),
+            )
+          : Opacity(
+              opacity: isScanned ? 0.45 : 1.0,
+              child: _collapsedRow(
+                context,
+                icon: Icons.confirmation_number_rounded,
+                label: '$tierName — #$code${isScanned ? ' ✓' : ''}',
+                meta: isScanned ? 'Scanned' : null,
+                onTap: inlineMode
+                    ? () => onToggleExpand?.call(_key('ticket_${ticket.id}'))
+                    : () => context.push('/tickets/${ticket.id}'),
+                showNavArrow: !inlineMode && !isScanned,
+              ),
+            ),
     );
   }
 

@@ -8,6 +8,7 @@ import '../../widgets/app_toast.dart';
 import '../../widgets/shimmer_loaders.dart';
 import '../../models/ticket_strategy.dart';
 import '../../providers/ticket_provider.dart';
+import '../event/create_event/create_event_actions.dart' show confirmDelete;
 
 class TicketStrategiesScreen extends StatefulWidget {
   const TicketStrategiesScreen({super.key});
@@ -71,6 +72,7 @@ class _TicketStrategiesScreenState extends State<TicketStrategiesScreen> {
   }
 
   Future<void> _delete(int id) async {
+    if (!await confirmDelete(context, 'ticket strategy')) return;
     try {
       final api = context.read<TicketProvider>();
       await api.deleteTicketStrategy(id);

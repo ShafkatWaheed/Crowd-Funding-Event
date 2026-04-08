@@ -5,6 +5,7 @@ import '../../../config/theme.dart';
 import '../../../models/ticket.dart';
 import '../../../providers/ticket_provider.dart';
 import '../../../widgets/app_toast.dart';
+import '../create_event/create_event_actions.dart' show confirmDelete;
 
 class EditTier {
   int? id;
@@ -88,6 +89,7 @@ class _EditTicketsSectionState extends State<EditTicketsSection> {
   }
 
   Future<void> _deleteTier(int idx) async {
+    if (!await confirmDelete(context, 'ticket tier')) return;
     final t = _tiers[idx];
     if (t.id != null) {
       try {

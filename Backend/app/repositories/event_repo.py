@@ -1157,13 +1157,15 @@ class EventRepository(BaseRepository[Event]):
     # ═══════════════════════════════════════════════════════════════════
 
     async def list_posts(
-        self, db: AsyncSession, event_id: int
+        self, db: AsyncSession, event_id: int, *, offset: int = 0, limit: int = 20,
     ) -> list[EventPost]:
         q = (
             select(EventPost)
             .where(EventPost.event_id == event_id)
             .options(selectinload(EventPost.user))
             .order_by(EventPost.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
         return list((await db.execute(q)).scalars().unique().all())
 

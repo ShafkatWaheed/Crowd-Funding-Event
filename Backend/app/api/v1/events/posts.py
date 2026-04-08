@@ -1,7 +1,7 @@
 """
 Event posts: list, create, delete, toggle.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.dependencies import DbSession, ReadDbSession, require_role
 from app.rate_limit import limiter, dynamic_limit
@@ -13,8 +13,13 @@ router = APIRouter()
 
 
 @router.get("/{event_id}/posts", response_model=list[EventPostResponse])
-async def list_event_posts(event_id: int, db: ReadDbSession):
-    posts = await post_service.list_posts(db, event_id=event_id)
+async def list_event_posts(
+    event_id: int,
+    db: ReadDbSession,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    posts = await post_service.list_posts(db, event_id=event_id, offset=offset, limit=limit)
     return [
         EventPostResponse(
             id=p.id,

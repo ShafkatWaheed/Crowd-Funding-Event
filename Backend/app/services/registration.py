@@ -100,8 +100,10 @@ async def register(
     return reg
 
 
-async def list_registrations(db: AsyncSession, *, event_id: int) -> list[Registration]:
-    return await registration_repo.list_by_event(db, event_id)
+async def list_registrations(
+    db: AsyncSession, *, event_id: int, offset: int = 0, limit: int = 20,
+) -> list[Registration]:
+    return await registration_repo.list_by_event(db, event_id, offset=offset, limit=limit)
 
 
 async def get_registration_or_404(

@@ -780,34 +780,72 @@ class _HomeTabState extends State<HomeTab> {
               _buildFeaturedSection(
                   'Near Me', Icons.near_me_rounded, _nearMeEvents, 0),
             if (!_featuredLoading) ...[
-              if (_trending.isNotEmpty)
-                _buildFeaturedSection(
-                  'Trending Now',
-                  Icons.local_fire_department_rounded,
-                  _trending,
-                  1,
-                ),
-              if (_comingSoon.isNotEmpty)
-                _buildFeaturedSection(
-                  'Coming Soon',
-                  Icons.upcoming_rounded,
-                  _comingSoon,
-                  2,
-                ),
-              if (_popular.isNotEmpty)
-                _buildFeaturedSection(
-                  'Most Popular',
-                  Icons.star_rounded,
-                  _popular,
-                  3,
-                ),
-              if (_communityEvents.isNotEmpty)
-                _buildFeaturedSection(
-                  'Community Events',
-                  Icons.groups_rounded,
-                  _communityEvents,
-                  4,
-                ),
+              if (_trending.isEmpty &&
+                  _popular.isEmpty &&
+                  _comingSoon.isEmpty &&
+                  _communityEvents.isEmpty &&
+                  _nearMeEvents.isEmpty)
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xxl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.event_busy_rounded,
+                            size: 48,
+                            color: AppTheme.textSecondaryOf(context),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No events to show right now',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryOf(context),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: _loadFeatured,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Refresh'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else ...[
+                if (_trending.isNotEmpty)
+                  _buildFeaturedSection(
+                    'Trending Now',
+                    Icons.local_fire_department_rounded,
+                    _trending,
+                    1,
+                  ),
+                if (_comingSoon.isNotEmpty)
+                  _buildFeaturedSection(
+                    'Coming Soon',
+                    Icons.upcoming_rounded,
+                    _comingSoon,
+                    2,
+                  ),
+                if (_popular.isNotEmpty)
+                  _buildFeaturedSection(
+                    'Most Popular',
+                    Icons.star_rounded,
+                    _popular,
+                    3,
+                  ),
+                if (_communityEvents.isNotEmpty)
+                  _buildFeaturedSection(
+                    'Community Events',
+                    Icons.groups_rounded,
+                    _communityEvents,
+                    4,
+                  ),
+              ],
             ],
           ],
 

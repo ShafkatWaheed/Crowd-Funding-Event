@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.ticket_repo import ticket_repo
 from app.services import event as event_service
+from app.services import platform_settings as settings_svc
 
 from app.services.ticket.tiers import get_tier_or_404
 
@@ -37,6 +38,9 @@ async def compute_ticket_price(
             "event_discount_cents": 0,
             "total_discount_cents": 0,
             "final_price_cents": 0,
+            "commission_cents": 0,
+            "net_to_organizer_cents": 0,
+            "ticket_commission_percent": 0,
         }
 
     common_cents = base * event.common_discount_percent // 100
@@ -153,6 +157,9 @@ async def compute_ticket_price(
             "early_bird_discount_cents": early_bird_cents,
         },
     )
+    commission_pct = await settings_svc.get_int(db, "ticket_commission_percent")
+    commission = final * commission_pct // 100 if final > 0 else 0
+
     return {
         "tier_price_cents": base,
         "common_discount_cents": common_cents,
@@ -165,4 +172,7 @@ async def compute_ticket_price(
         "final_price_cents": final,
         "discount_capped": raw_total > cap_cents,
         "max_discount_percent": getattr(event, "max_discount_percent", 100),
+        "commission_cents": commission,
+        "net_to_organizer_cents": final - commission,
+        "ticket_commission_percent": commission_pct,
     }

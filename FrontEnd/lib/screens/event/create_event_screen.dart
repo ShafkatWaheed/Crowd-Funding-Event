@@ -421,7 +421,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       if (mounted && result.warnings.isNotEmpty) {
         AppToast.warning(context, '${result.warnings.length} issue(s) during setup. Event created but some items failed.');
       }
-      if (mounted) context.pop(true);
+      if (mounted) {
+        AppToast.success(context, 'Event created successfully');
+        context.pop(true);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) AppToast.fromError(context, e, fallback: 'Failed to create event');

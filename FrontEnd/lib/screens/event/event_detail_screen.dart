@@ -147,6 +147,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (mounted) setState(() => _bookmarked = res.bookmarked);
     } catch (e) {
       debugPrint(e.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update bookmark'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -815,7 +823,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               index: 1,
               child: (event.status == EventStatus.selling_tickets ||
                        event.status == EventStatus.live ||
-                       event.status == EventStatus.completed)
+                       event.status == EventStatus.completed ||
+                       event.status == EventStatus.under_review)
                   ? FundingResultsCard(eventId: widget.eventId, event: event)
                   : FundingCard(
                       eventId: widget.eventId,
@@ -970,6 +979,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 'This event has ended. Thanks for being part of it!',
                 Icons.check_circle,
                 AppTheme.textSecondaryOf(context)),
+          if (event.status == EventStatus.under_review)
+            EventDetailHelpers.infoBanner(
+                'This event is under review by the platform. Activity is paused while we look into it.',
+                Icons.manage_search_rounded,
+                AppTheme.warningColor),
 
           // Sponsor access
           if (user != null &&

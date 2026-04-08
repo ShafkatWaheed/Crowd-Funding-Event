@@ -46,7 +46,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   bool get _showTicketStats =>
       widget.event.status == EventStatus.selling_tickets ||
       widget.event.status == EventStatus.live ||
-      widget.event.status == EventStatus.completed;
+      widget.event.status == EventStatus.completed ||
+      widget.event.status == EventStatus.under_review;
 
   @override
   Widget build(BuildContext context) {
@@ -111,13 +112,20 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                     ),
                   ),
           ),
+          // Lifecycle bar pinned to top of header
+          Positioned(
+            top: AppSpacing.sm,
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
+            child: EventLifecycleBar(event: event, compact: true),
+          ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.md,
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -130,29 +138,33 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  EventLifecycleBar(event: event, compact: true),
                   if ((widget.myPledgeAmountCents ?? 0) > 0 ||
                       (widget.myTicketCount ?? 0) > 0 ||
                       widget.showSponsorBadge) ...[
-                    AppSpacing.vSm,
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
+                        color: Colors.black.withValues(alpha: 0.45),
                         borderRadius: AppRadius.pill,
                         border: Border.all(
-                            color: AppTheme.successColor.withValues(alpha: 0.4)),
+                            color: AppTheme.successColor.withValues(alpha: 0.3),
+                            width: 0.5),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.check_circle_rounded,
-                              size: 12, color: AppTheme.successColor),
-                          const SizedBox(width: 4),
+                              size: 9, color: AppTheme.successColor),
+                          const SizedBox(width: 3),
                           Text(
-                            'Your Activity',
-                            style: AppTypography.badge.copyWith(color: Colors.white),
+                            'Activity',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ],
                       ),
@@ -202,7 +214,8 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   Widget _buildBody(BuildContext context, Event event, bool isDark) {
     final hasFunding = (event.fundingGoalCents ?? 0) > 0 &&
         event.fundingEndAt != null &&
-        event.status == EventStatus.approved;
+        (event.status == EventStatus.approved ||
+         event.status == EventStatus.under_review);
 
     return Padding(
       padding: const EdgeInsets.symmetric(

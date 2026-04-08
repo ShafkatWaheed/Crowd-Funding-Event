@@ -762,6 +762,10 @@ class _FundingCardState extends State<FundingCard> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Unpledge'),
           ),
         ],

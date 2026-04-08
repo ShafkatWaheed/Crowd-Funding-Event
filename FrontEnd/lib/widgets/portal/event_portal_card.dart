@@ -163,6 +163,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
               unread: card.channelUnreadCount,
               child: _AnnouncementExpanded(
                 channelId: channelId,
+                isOrganizer: isOrgView,
                 onViewAll: () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               ),
             )
@@ -498,15 +499,18 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
 class _AnnouncementExpanded extends StatefulWidget {
   final String channelId;
+  final bool isOrganizer;
   final VoidCallback onViewAll;
 
-  const _AnnouncementExpanded({required this.channelId, required this.onViewAll});
+  const _AnnouncementExpanded({required this.channelId, this.isOrganizer = false, required this.onViewAll});
 
   @override
   State<_AnnouncementExpanded> createState() => _AnnouncementExpandedState();
 }
 
 class _AnnouncementExpandedState extends State<_AnnouncementExpanded> {
+  final _composeCtrl = TextEditingController();
+  bool _posting = false;
   StreamSubscription? _sub;
   List<ChatPost> _posts = [];
 
@@ -520,22 +524,70 @@ class _AnnouncementExpandedState extends State<_AnnouncementExpanded> {
 
   @override
   void dispose() {
+    _composeCtrl.dispose();
     _sub?.cancel();
     super.dispose();
   }
 
+  Future<void> _postAnnouncement() async {
+    final body = _composeCtrl.text.trim();
+    if (body.isEmpty) return;
+    setState(() => _posting = true);
+    try {
+      await context.read<ChatFirebaseProvider>().createPost(widget.channelId, body);
+      _composeCtrl.clear();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+    if (mounted) setState(() => _posting = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_posts.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Text('No announcements yet', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
-      );
-    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ..._posts.map((post) => _InlinePost(post: post, channelId: widget.channelId)),
+        if (widget.isOrganizer) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _composeCtrl,
+                  onSubmitted: (_) => _postAnnouncement(),
+                  style: const TextStyle(fontSize: 10),
+                  decoration: InputDecoration(
+                    hintText: 'Write an announcement...',
+                    hintStyle: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    border: OutlineInputBorder(borderRadius: AppRadius.sm, borderSide: BorderSide(color: AppTheme.dividerOf(context))),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: _posting ? null : _postAnnouncement,
+                child: Container(
+                  width: 24, height: 24,
+                  decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                  child: _posting
+                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5))
+                      : Icon(Icons.arrow_upward, size: 14, color: AppTheme.accentColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+        ],
+        if (_posts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Text('No announcements yet', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+          )
+        else
+          ..._posts.map((post) => _InlinePost(post: post, channelId: widget.channelId)),
         InkWell(
           onTap: widget.onViewAll,
           child: Padding(

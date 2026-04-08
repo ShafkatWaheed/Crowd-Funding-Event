@@ -13,7 +13,6 @@ import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
-import '../../widgets/tickets_bottom_sheet.dart';
 import '../chat/conversations_screen.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
@@ -253,15 +252,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showTicketsSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const TicketsBottomSheet(),
-    );
-  }
-
   Widget _buildHeaderIcons(bool hasChatTab) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -386,11 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        // Customers: Tickets tab opens a bottom sheet instead of switching pages
-        if (!hasChatTab && index == 3) {
-          _showTicketsSheet();
-          return;
-        }
+        // (Removed: old behavior opened tickets bottom sheet for customers on tab 3)
         if (_navIndex == index) return;
         setState(() {
           _navIndex = index;

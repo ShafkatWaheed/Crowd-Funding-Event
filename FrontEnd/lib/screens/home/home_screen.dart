@@ -20,7 +20,6 @@ import 'tabs/explore_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/manage_tab.dart';
 import 'tabs/my_events_tab.dart';
-import '../profile/my_tickets_screen.dart';
 import 'tabs/organizer_dashboard_tab.dart';
 import 'tabs/sponsor_manage_tab.dart';
 

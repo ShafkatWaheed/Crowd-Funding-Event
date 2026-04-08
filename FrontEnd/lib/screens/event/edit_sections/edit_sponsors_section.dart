@@ -134,6 +134,7 @@ class _EditSponsorsSectionState extends State<EditSponsorsSection> {
 
   Future<void> _deleteCategory(int idx) async {
     if (!await confirmDelete(context, 'sponsor category')) return;
+    if (!mounted) return;
     final sc = _categories[idx];
     if (sc.id != null) {
       try {

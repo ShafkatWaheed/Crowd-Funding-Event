@@ -44,7 +44,10 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
         title: 'Approve refund?',
         message: 'This will process the refund immediately. This action cannot be undone.',
         confirmLabel: 'Approve Refund',
-    )) return;
+    )) {
+      return;
+    }
+    if (!mounted) return;
     try {
       final repo = context.read<TicketProvider>();
       await repo.approveTicketRefund(widget.eventId, ticketId);
@@ -53,7 +56,9 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
         _load();
       }
     } catch (e) {
-      if (mounted) AppToast.fromError(context, e, fallback: 'Approve failed');
+      if (mounted) {
+        AppToast.fromError(context, e, fallback: 'Approve failed');
+      }
     }
   }
 

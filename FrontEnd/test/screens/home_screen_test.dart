@@ -11,6 +11,7 @@ import 'package:crowd_funding_app/models/event.dart';
 import 'package:crowd_funding_app/models/user.dart';
 import 'package:crowd_funding_app/providers/auth_provider.dart';
 import 'package:crowd_funding_app/providers/chat_provider.dart';
+import 'package:crowd_funding_app/providers/chat_firebase_provider.dart';
 import 'package:crowd_funding_app/providers/event_provider.dart';
 import 'package:crowd_funding_app/providers/notification_provider.dart';
 import 'package:crowd_funding_app/screens/home/home_screen.dart';
@@ -24,6 +25,7 @@ void main() {
   late MockEventProvider mockEvent;
   late MockNotificationProvider mockNotif;
   late MockChatProvider mockChat;
+  late MockChatFirebaseProvider mockChatFirebase;
   late MockEventRepository mockEventRepo;
 
   setUp(() {
@@ -31,6 +33,7 @@ void main() {
     mockEvent = MockEventProvider();
     mockNotif = MockNotificationProvider();
     mockChat = MockChatProvider();
+    mockChatFirebase = MockChatFirebaseProvider();
     mockEventRepo = MockEventRepository();
 
     // Default stubs shared by all tests
@@ -43,6 +46,12 @@ void main() {
     when(() => mockEvent.viewerDataVersion).thenReturn(0);
     when(() => mockEvent.loadEvents(filters: any(named: 'filters')))
         .thenAnswer((_) async {});
+    when(() => mockEvent.getMyEvents(
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          sortBy: any(named: 'sortBy'),
+        )).thenAnswer((_) async => <Event>[]);
+    when(() => mockEvent.getEventCities()).thenAnswer((_) async => <String>[]);
     when(() => mockEvent.addListener(any())).thenReturn(null);
     when(() => mockEvent.removeListener(any())).thenReturn(null);
 
@@ -56,6 +65,13 @@ void main() {
     when(() => mockChat.loadConversations()).thenAnswer((_) async {});
     when(() => mockChat.addListener(any())).thenReturn(null);
     when(() => mockChat.removeListener(any())).thenReturn(null);
+
+    when(() => mockChatFirebase.totalUnreadCount).thenReturn(0);
+    when(() => mockChatFirebase.loadingMyEvents).thenReturn(false);
+    when(() => mockChatFirebase.myEventCards).thenReturn([]);
+    when(() => mockChatFirebase.loadMyEvents()).thenAnswer((_) async {});
+    when(() => mockChatFirebase.addListener(any())).thenReturn(null);
+    when(() => mockChatFirebase.removeListener(any())).thenReturn(null);
 
     when(() => mockEventRepo.getEventCities()).thenAnswer((_) async => <String>[]);
     when(() => mockEventRepo.checkBookmarks(any()))
@@ -79,6 +95,7 @@ void main() {
       ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
       ChangeNotifierProvider<NotificationProvider>.value(value: mockNotif),
       ChangeNotifierProvider<ChatProvider>.value(value: mockChat),
+      ChangeNotifierProvider<ChatFirebaseProvider>.value(value: mockChatFirebase),
     ];
   }
 
@@ -93,11 +110,11 @@ void main() {
       );
       await tester.pump();
 
-      // Bottom nav should contain: Home, Explore, Manage, Tickets
+      // Bottom nav should contain: Home, Explore, Manage, My Events
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Manage'), findsOneWidget);
-      expect(find.text('Tickets'), findsOneWidget);
+      expect(find.text('My Events'), findsOneWidget);
       // Customer should NOT see Channel tab
       expect(find.text('Channel'), findsNothing);
 

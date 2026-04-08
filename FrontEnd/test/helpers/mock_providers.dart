@@ -8,6 +8,7 @@ import 'package:crowd_funding_app/providers/notification_provider.dart';
 import 'package:crowd_funding_app/providers/config_provider.dart';
 import 'package:crowd_funding_app/providers/theme_provider.dart';
 import 'package:crowd_funding_app/providers/chat_provider.dart';
+import 'package:crowd_funding_app/providers/chat_firebase_provider.dart';
 import 'package:crowd_funding_app/providers/poll_provider.dart';
 
 class MockAuthProvider extends Mock implements AuthProvider {}
@@ -26,3 +27,5 @@ class MockConfigProvider extends Mock implements ConfigProvider {}
 class MockThemeProvider extends Mock implements ThemeProvider {}
 
 class MockChatProvider extends Mock implements ChatProvider {}
+
+class MockChatFirebaseProvider extends Mock implements ChatFirebaseProvider {}

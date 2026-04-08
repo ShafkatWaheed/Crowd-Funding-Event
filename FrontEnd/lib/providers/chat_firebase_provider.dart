@@ -3,12 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/chat.dart';
+import '../models/ticket.dart';
 import '../repositories/chat_firebase_repository.dart';
+import '../repositories/event_repository.dart';
+import '../repositories/ticket_repository.dart';
 
 class ChatFirebaseProvider extends ChangeNotifier {
   final ChatFirebaseRepository _repo;
+  final EventRepository _eventRepo;
+  final TicketRepository _ticketRepo;
 
-  ChatFirebaseProvider(this._repo);
+  ChatFirebaseProvider(this._repo, this._eventRepo, this._ticketRepo);
 
   // ── My Events tab state ───────────────────────────────────
 
@@ -53,27 +58,69 @@ class ChatFirebaseProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final conversations = await _repo.getMyConversations();
-      // Group by event
       final eventMap = <int, _EventCardBuilder>{};
 
-      for (final conv in conversations) {
+      // 1) Fetch user's registered/pledged/ticketed events
+      final myEvents = await _eventRepo.getMyEvents(offset: 0, limit: 100);
+      for (final event in myEvents) {
         eventMap.putIfAbsent(
-          conv.eventId,
+          event.id,
           () => _EventCardBuilder(
-            eventId: conv.eventId,
-            eventTitle: conv.eventTitle ?? 'Event #${conv.eventId}',
+            eventId: event.id,
+            eventTitle: event.title,
+            eventStatus: event.status.name,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            venueName: event.venue?.name,
           ),
         );
-        eventMap[conv.eventId]!.conversation = conv;
       }
 
-      // Build cards and sort
+      // 2) Fetch user's tickets grouped by event
+      final ticketResult = await _ticketRepo.getMyTickets(offset: 0, limit: 200);
+      for (final ticket in ticketResult.items) {
+        final builder = eventMap.putIfAbsent(
+          ticket.eventId,
+          () => _EventCardBuilder(
+            eventId: ticket.eventId,
+            eventTitle: ticket.eventTitle ?? 'Event #${ticket.eventId}',
+            eventStatus: ticket.eventStatus ?? 'selling_tickets',
+          ),
+        );
+        builder.tickets.add(ticket);
+      }
+
+      // 3) Fetch user's conversations (DMs)
+      try {
+        final conversations = await _repo.getMyConversations();
+        for (final conv in conversations) {
+          final builder = eventMap.putIfAbsent(
+            conv.eventId,
+            () => _EventCardBuilder(
+              eventId: conv.eventId,
+              eventTitle: conv.eventTitle ?? 'Event #${conv.eventId}',
+            ),
+          );
+          builder.conversation = conv;
+        }
+      } catch (_) {
+        // Chat service may not be available yet — still show events
+      }
+
+      // 4) Sort tickets within each card: unscanned first
+      for (final builder in eventMap.values) {
+        builder.tickets.sort((a, b) {
+          final aScanned = a.scannedAt != null ? 1 : 0;
+          final bScanned = b.scannedAt != null ? 1 : 0;
+          return aScanned.compareTo(bScanned);
+        });
+      }
+
+      // 5) Build cards and sort by priority
       myEventCards = eventMap.values.map((b) => b.build()).toList();
       myEventCards.sort((a, b) {
         final priCmp = a.sortPriority.compareTo(b.sortPriority);
         if (priCmp != 0) return priCmp;
-        // Within same priority, sort by start time (soonest first)
         final aTime = a.startTime?.millisecondsSinceEpoch ?? 0;
         final bTime = b.startTime?.millisecondsSinceEpoch ?? 0;
         return aTime.compareTo(bTime);
@@ -211,16 +258,32 @@ class ChatFirebaseProvider extends ChangeNotifier {
 class _EventCardBuilder {
   final int eventId;
   final String eventTitle;
+  final String eventStatus;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final String? venueName;
   DmConversation? conversation;
+  List<TicketSale> tickets = [];
 
-  _EventCardBuilder({required this.eventId, required this.eventTitle});
+  _EventCardBuilder({
+    required this.eventId,
+    required this.eventTitle,
+    this.eventStatus = 'selling_tickets',
+    this.startTime,
+    this.endTime,
+    this.venueName,
+  });
 
   MyEventCard build() {
     return MyEventCard(
       eventId: eventId,
       eventTitle: eventTitle,
-      eventStatus: conversation?.status == 'read_only' ? 'completed' : 'selling_tickets',
+      eventStatus: eventStatus,
+      startTime: startTime,
+      endTime: endTime,
+      venueName: venueName,
       conversation: conversation,
+      tickets: tickets,
     );
   }
 }

@@ -141,7 +141,7 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         ChangeNotifierProvider(create: (ctx) => BookmarkProvider(ctx.read<BookmarkRepository>())),
         ChangeNotifierProvider(create: (ctx) => FaqProvider(ctx.read<FaqRepository>())),
         ChangeNotifierProvider(create: (ctx) => PollProvider(ctx.read<PollRepository>())),
-        ChangeNotifierProvider(create: (ctx) => ChatFirebaseProvider(ctx.read<ChatFirebaseRepository>())),
+        ChangeNotifierProvider(create: (ctx) => ChatFirebaseProvider(ctx.read<ChatFirebaseRepository>(), ctx.read<EventRepository>(), ctx.read<TicketRepository>())),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _AppShell(),

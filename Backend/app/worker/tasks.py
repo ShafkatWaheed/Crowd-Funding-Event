@@ -909,40 +909,6 @@ async def cleanup_old_records(ctx: dict) -> None:
         await _log_cron_run("cleanup_old_records", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
-async def archive_resolved_chats(ctx: dict) -> None:
-    """Archive Redis chat streams for resolved bids / completed events, then clear metadata."""
-    t0 = time.monotonic()
-    started_at = datetime.now(timezone.utc)
-    try:
-        from app.services import chat_service
-        from app.services import platform_settings as settings_svc
-        from app.repositories.sponsor_repo import sponsor_repo
-
-        async with async_session_maker() as db:
-            retention_days = await settings_svc.get_int(db, "chat_archive_retention_days")
-            cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
-
-            # 1) Bids whose events are completed/cancelled with end_date past cutoff
-            event_ids = await sponsor_repo.get_archivable_bid_ids_by_event_status(db, cutoff)
-            # 2) Rejected/withdrawn bids past cutoff
-            bid_ids = await sponsor_repo.get_archivable_bid_ids_by_bid_status(db, cutoff)
-            all_ids = set(event_ids + bid_ids)
-
-            archived = 0
-            for bid_id in all_ids:
-                if await chat_service.archive_stream(bid_id):
-                    archived += 1
-                await sponsor_repo.clear_bid_chat_metadata(db, bid_id)
-
-            await db.commit()
-            logger.info("archive_resolved_chats: archived %d / %d streams", archived, len(all_ids))
-
-        await _log_cron_run("archive_resolved_chats", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=archived)
-    except Exception:
-        logger.exception("archive_resolved_chats failed")
-        await _log_cron_run("archive_resolved_chats", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
-
-
 async def transition_event_status(ctx: dict, event_id: int, trigger_field: str, scheduled_for_iso: str) -> None:
     """Deferred: run auto_transition_status for a single event at the scheduled time.
 
@@ -1056,24 +1022,6 @@ async def reconcile_event_statuses(ctx: dict) -> None:
     except Exception:
         logger.exception("reconcile_event_statuses failed")
         await _log_cron_run("reconcile_event_statuses", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
-
-
-async def purge_old_chat_archives(ctx: dict) -> None:
-    """Delete archived chat JSON files older than the retention period."""
-    t0 = time.monotonic()
-    started_at = datetime.now(timezone.utc)
-    try:
-        from app.services import chat_service
-        from app.services import platform_settings as settings_svc
-
-        async with async_session_maker() as db:
-            retention_days = await settings_svc.get_int(db, "chat_archive_retention_days")
-
-        purged = await chat_service.purge_old_archives(retention_days)
-        await _log_cron_run("purge_old_chat_archives", status="success", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, items_processed=purged)
-    except Exception:
-        logger.exception("purge_old_chat_archives failed")
-        await _log_cron_run("purge_old_chat_archives", status="error", started_at=started_at, duration_ms=(time.monotonic() - t0) * 1000, error=traceback.format_exc()[-500:])
 
 
 async def _send_pledge_refund_email(db, funding) -> None:

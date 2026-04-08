@@ -250,21 +250,6 @@ async def test_check_all_ticket_escrows_enabled():
 
 
 @pytest.mark.asyncio
-async def test_archive_resolved_chats_enabled():
-    """archive_resolved_chats runs without error when enabled."""
-    mock_sm, mock_session = _mock_session_maker()
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
-    mock_session.execute = AsyncMock(return_value=mock_result)
-
-    with patch("app.worker.tasks.async_session_maker", mock_sm):
-        with patch("app.services.platform_settings.get_int", new_callable=AsyncMock, return_value=30):
-            with patch("app.worker.tasks._log_cron_run", new_callable=AsyncMock):
-                from app.worker.tasks import archive_resolved_chats
-                await archive_resolved_chats(_mock_ctx())
-
-
-@pytest.mark.asyncio
 async def test_cleanup_old_records_enabled():
     """cleanup_old_records runs without error."""
     mock_sm, mock_session = _mock_session_maker()

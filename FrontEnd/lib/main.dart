@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -22,7 +21,6 @@ import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/config_provider.dart';
-import 'providers/chat_provider.dart';
 import 'providers/chat_firebase_provider.dart';
 import 'repositories/chat_firebase_repository.dart';
 import 'providers/notification_provider.dart';
@@ -35,7 +33,6 @@ import 'providers/venue_provider.dart';
 import 'providers/bookmark_provider.dart';
 import 'repositories/admin_repository.dart';
 import 'repositories/bookmark_repository.dart';
-import 'repositories/chat_repository.dart';
 import 'repositories/event_repository.dart';
 import 'repositories/funding_repository.dart';
 import 'repositories/ticket_repository.dart';
@@ -49,7 +46,6 @@ import 'repositories/poll_repository.dart';
 import 'providers/poll_provider.dart';
 import 'models/notification_model.dart' show NotificationPayload;
 import 'screens/notification/notification_screen.dart' show resolveNotificationRoute;
-import 'services/chat_socket_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_stripe/flutter_stripe.dart';
 
@@ -97,13 +93,11 @@ class CrowdFundApp extends StatefulWidget {
 
 class _CrowdFundAppState extends State<CrowdFundApp> {
   late final Dio _dio;
-  late final ChatSocketService _chatSocket;
   late final AppDatabase _appDatabase;
   @override
   void initState() {
     super.initState();
     _dio = createAuthDio();
-    _chatSocket = ChatSocketService();
     _appDatabase = AppDatabase();
   }
 
@@ -123,11 +117,9 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         Provider<FaqRepository>(create: (ctx) => FaqRepository(ctx.read<Dio>())),
         Provider<PollRepository>(create: (ctx) => PollRepository(ctx.read<Dio>())),
         Provider<NotificationRepository>(create: (ctx) => NotificationRepository(ctx.read<Dio>())),
-        Provider<ChatRepository>(create: (ctx) => ChatRepository(ctx.read<Dio>())),
         Provider<ChatFirebaseRepository>(create: (ctx) => ChatFirebaseRepository(ctx.read<Dio>())),
         Provider<AdminRepository>(create: (ctx) => AdminRepository(ctx.read<Dio>())),
         Provider<PaymentRepository>(create: (ctx) => PaymentRepository(ctx.read<Dio>())),
-        Provider<ChatSocketService>.value(value: _chatSocket),
         Provider<AppDatabase>.value(value: _appDatabase),
         Provider<SyncService>(create: (ctx) => SyncService(
           db: _appDatabase,
@@ -140,7 +132,6 @@ class _CrowdFundAppState extends State<CrowdFundApp> {
         ChangeNotifierProvider(create: (ctx) => EventProvider(ctx.read<EventRepository>())),
         ChangeNotifierProvider(create: (ctx) => ConfigProvider(ctx.read<EventRepository>(), ctx.read<PaymentRepository>())..fetchConfig()),
         ChangeNotifierProvider(create: (ctx) => NotificationProvider(ctx.read<NotificationRepository>())),
-        ChangeNotifierProvider(create: (ctx) => ChatProvider(ctx.read<ChatRepository>(), _chatSocket)),
         ChangeNotifierProvider(create: (ctx) => PledgeProvider(ctx.read<FundingRepository>())),
         ChangeNotifierProvider(create: (ctx) => AdminProvider(ctx.read<AdminRepository>())),
         ChangeNotifierProvider(create: (ctx) => SponsorProvider(ctx.read<SponsorRepository>())),
@@ -216,20 +207,6 @@ class _AppShellState extends State<_AppShell> {
     });
   }
 
-  Future<void> _connectChat() async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return;
-    final token = await firebaseUser.getIdToken();
-    if (token == null || !mounted) return;
-    context.read<ChatSocketService>().connect(token);
-    context.read<ChatProvider>().startListening();
-  }
-
-  void _disconnectChat() {
-    context.read<ChatProvider>().stopListening();
-    context.read<ChatSocketService>().disconnect();
-  }
-
   void _initSync() {
     if (_syncInitialized) return;
     _syncInitialized = true;
@@ -275,12 +252,10 @@ class _AppShellState extends State<_AppShell> {
         if (isAuth) {
           notifProvider.startPolling();
           _setupFcmListeners(notifProvider);
-          _connectChat();
           _initSync();
         } else {
           notifProvider.stopPolling();
           _teardownFcm(notifProvider);
-          _disconnectChat();
         }
       });
     }

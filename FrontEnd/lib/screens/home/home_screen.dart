@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../config/design_tokens.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/chat_provider.dart';
 import '../../providers/chat_firebase_provider.dart';
 import '../chat/my_events_tab.dart' as chat_tab;
 import '../chat/portal_sheet.dart';
@@ -14,7 +13,6 @@ import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
-import '../chat/conversations_screen.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
 import 'tabs/home_tab.dart';
@@ -200,10 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
               genres: _genres,
               headerIcons: _buildHeaderIcons(hasChatTab),
             ),
-          if (isOrg)
-            const ConversationsScreen(embedded: true)
-          else
-            const chat_tab.MyEventsTab(),
+          const chat_tab.MyEventsTab(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -223,12 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
                 _navItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
                 _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
-                if (isOrg)
-                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
-                      badge: context.watch<ChatProvider>().totalUnreadCount)
-                else
-                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
-                      badge: context.watch<ChatFirebaseProvider>().totalUnreadCount),
+                _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
+                    badge: context.watch<ChatFirebaseProvider>().totalUnreadCount),
               ],
             ),
           ),

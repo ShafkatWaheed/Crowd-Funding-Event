@@ -224,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _navItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
                 _navItem(2, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Manage'),
                 if (isOrg)
-                  _navItem(3, Icons.chat_rounded, Icons.chat_outlined, 'Channel',
+                  _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',
                       badge: context.watch<ChatProvider>().totalUnreadCount)
                 else
                   _navItem(3, Icons.space_dashboard_rounded, Icons.space_dashboard_outlined, 'Portal',

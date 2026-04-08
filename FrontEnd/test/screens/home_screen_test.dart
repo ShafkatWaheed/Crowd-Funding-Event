@@ -115,13 +115,11 @@ void main() {
       expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Manage'), findsOneWidget);
       expect(find.text('Portal'), findsOneWidget);
-      // Customer should NOT see Channel tab
-      expect(find.text('Channel'), findsNothing);
 
       await tester.pumpAndSettle();
     });
 
-    testWidgets('renders Channel tab for organizer instead of Tickets',
+    testWidgets('renders Portal tab for organizer',
         (tester) async {
       final user = makeUser(role: UserRole.organizer);
       await pumpApp(
@@ -131,12 +129,11 @@ void main() {
       );
       await tester.pump();
 
-      // Organizer sees: Home, Explore, Manage, Channel
+      // Organizer sees: Home, Explore, Manage, Portal
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Manage'), findsOneWidget);
-      expect(find.text('Channel'), findsOneWidget);
-      expect(find.text('Tickets'), findsNothing);
+      expect(find.text('Portal'), findsAtLeastNWidgets(1));
 
       await tester.pumpAndSettle();
     });

@@ -167,7 +167,22 @@ class ChatFirebaseProvider extends ChangeNotifier {
         } catch (_) {}
       }
 
-      // 6) Build cards and sort by priority
+      // 6) Fetch unread DM counts for organizers
+      if (isOrganizer) {
+        for (final builder in eventMap.values) {
+          if (!builder.isOrganizer) continue;
+          try {
+            final customerConvs = await _repo.getEventConversations(builder.eventId, typeFilter: 'customer');
+            builder.customerUnreadCount = customerConvs.fold<int>(0, (sum, c) => sum + c.unreadCount);
+          } catch (_) {}
+          try {
+            final sponsorConvs = await _repo.getEventConversations(builder.eventId, typeFilter: 'sponsor');
+            builder.sponsorUnreadCount = sponsorConvs.fold<int>(0, (sum, c) => sum + c.unreadCount);
+          } catch (_) {}
+        }
+      }
+
+      // 7) Build cards and sort by priority
       myEventCards = eventMap.values.map((b) => b.build()).toList();
       myEventCards.sort((a, b) {
         final priCmp = a.sortPriority.compareTo(b.sortPriority);
@@ -336,6 +351,8 @@ class _EventCardBuilder {
   ChatChannel? channel;
   DmConversation? conversation;
   List<TicketSale> tickets = [];
+  int customerUnreadCount = 0;
+  int sponsorUnreadCount = 0;
 
   _EventCardBuilder({
     required this.eventId,
@@ -359,6 +376,8 @@ class _EventCardBuilder {
       channel: channel,
       conversation: conversation,
       tickets: tickets,
+      customerUnreadCount: customerUnreadCount,
+      sponsorUnreadCount: sponsorUnreadCount,
     );
   }
 }

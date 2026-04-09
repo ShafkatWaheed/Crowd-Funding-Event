@@ -334,6 +334,11 @@ class _EventPortalCardState extends State<EventPortalCard> {
         ),
       );
     }
+    final unreadCount = type == 'customer' ? card.customerUnreadCount : card.sponsorUnreadCount;
+    final subtitle = unreadCount > 0
+        ? '$unreadCount new message${unreadCount > 1 ? 's' : ''}'
+        : 'Announcements & messages';
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOutCubic,
@@ -342,7 +347,8 @@ class _EventPortalCardState extends State<EventPortalCard> {
         context,
         icon: icon,
         label: label,
-        subtitle: 'Announcements & messages',
+        subtitle: subtitle,
+        unread: unreadCount,
         onTap: inlineMode
             ? () => onToggleExpand?.call(_key(expandKey))
             : () => context.push('/chat/organizer-hub/${card.eventId}'),

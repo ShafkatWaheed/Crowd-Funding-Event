@@ -226,6 +226,12 @@ class MyEventCard {
   /// Unread count for the announcement channel.
   final int channelUnreadCount;
 
+  /// Organizer-only: total unread customer DMs for this event.
+  final int customerUnreadCount;
+
+  /// Organizer-only: total unread sponsor DMs for this event.
+  final int sponsorUnreadCount;
+
   const MyEventCard({
     required this.eventId,
     required this.eventTitle,
@@ -240,6 +246,8 @@ class MyEventCard {
     this.tickets = const [],
     this.isOrganizer = false,
     this.channelUnreadCount = 0,
+    this.customerUnreadCount = 0,
+    this.sponsorUnreadCount = 0,
   });
 
   /// Sort priority: live=0, upcoming=1, selling/funding=2, completed=3.
@@ -264,7 +272,7 @@ class MyEventCard {
   bool get isCompleted => eventStatus == 'completed' || eventStatus == 'cancelled';
 
   int get totalUnread =>
-      channelUnreadCount + (conversation?.unreadCount ?? 0);
+      channelUnreadCount + (conversation?.unreadCount ?? 0) + customerUnreadCount + sponsorUnreadCount;
 }
 
 class SponsorBidInfo {

@@ -11,6 +11,8 @@ from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import get_logger
+
+logger = get_logger("svc.event.crud")
 from app.models.event import Event, EventStatus, RegistrationType
 from app.models.user import User
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError

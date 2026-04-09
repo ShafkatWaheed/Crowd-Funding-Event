@@ -48,11 +48,18 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Role-specific left border accent
+    final leftAccent = card.isOrganizer
+        ? AppTheme.accentColor
+        : card.bidInfo != null
+            ? AppTheme.warningColor
+            : null;
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: card.isCompleted ? 0.5 : 1.0,
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
           borderRadius: AppRadius.md,
@@ -61,23 +68,36 @@ class _EventPortalCardState extends State<EventPortalCard> {
                 ? AppTheme.errorColor.withValues(alpha: 0.25)
                 : AppTheme.dividerOf(context),
           ),
+          // Subtle left accent for role identification
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _header(context),
-            if (card.isOrganizer) ...[
-              _audienceGroupRow(context, 'customer'),
-              _audienceGroupRow(context, 'sponsor'),
-              _scannerRow(context),
-            ] else ...[
-              if (card.channel != null) _announcementSection(context, 'customer'),
-              _chatSection(context),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              // Left accent bar for role
+              if (leftAccent != null)
+                Container(width: 3, color: leftAccent.withValues(alpha: 0.6)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _header(context),
+                    if (card.isOrganizer) ...[
+                      _audienceGroupRow(context, 'customer'),
+                      _audienceGroupRow(context, 'sponsor'),
+                      if (card.isLive) _scannerRow(context),
+                    ] else ...[
+                      if (card.channel != null) _announcementSection(context, 'customer'),
+                      _chatSection(context),
+                    ],
+                    if (card.bidInfo != null) _bidRow(context),
+                    ...card.tickets.map((t) => _ticketSection(context, t)),
+                  ],
+                ),
+              ),
             ],
-            if (card.bidInfo != null) _bidRow(context),
-            ...card.tickets.map((t) => _ticketSection(context, t)),
-          ],
+          ),
         ),
       ),
     );
@@ -90,7 +110,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
       onTap: () => context.push('/events/${card.eventId}'),
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.mdValue)),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm + 2),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
           color: card.isLive ? AppTheme.errorColor.withValues(alpha: 0.04) : null,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.mdValue)),
@@ -420,7 +440,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm - 1),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: 5),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
         ),
@@ -477,7 +497,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
         InkWell(
           onTap: () => onToggleExpand?.call(_key(key)),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm - 1),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: 5),
             decoration: BoxDecoration(
               color: (color ?? AppTheme.accentColor).withValues(alpha: 0.04),
               border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),

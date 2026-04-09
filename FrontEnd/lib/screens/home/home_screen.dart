@@ -368,8 +368,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        // Portal tab: all users get a sheet first, "Full View" switches to the tab
-        if (index == 3) {
+        // Portal tab: show sheet if not already on full view, otherwise ignore
+        if (index == 3 && _navIndex != 3) {
           showPortalSheet(context, onFullView: () {
             setState(() => _navIndex = 3);
           });

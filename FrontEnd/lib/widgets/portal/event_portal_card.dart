@@ -48,6 +48,9 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final isExpanded = expandedKey != null && expandedKey!.startsWith('${card.eventId}_');
+
     // Role-specific left border accent
     final leftAccent = card.isOrganizer
         ? AppTheme.accentColor
@@ -58,7 +61,9 @@ class _EventPortalCardState extends State<EventPortalCard> {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: card.isCompleted ? 0.5 : 1.0,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
@@ -66,17 +71,32 @@ class _EventPortalCardState extends State<EventPortalCard> {
           border: Border.all(
             color: card.isLive
                 ? AppTheme.errorColor.withValues(alpha: 0.25)
-                : AppTheme.dividerOf(context),
+                : isExpanded
+                    ? AppTheme.accentColor.withValues(alpha: 0.15)
+                    : AppTheme.dividerOf(context),
           ),
-          // Subtle left accent for role identification
+          // Card lifts when a section is expanded
+          boxShadow: isExpanded ? AppShadow.cardHover(isDark) : AppShadow.soft(isDark),
         ),
         clipBehavior: Clip.antiAlias,
         child: IntrinsicHeight(
           child: Row(
             children: [
-              // Left accent bar for role
+              // Left accent bar — gradient top-to-bottom
               if (leftAccent != null)
-                Container(width: 3, color: leftAccent.withValues(alpha: 0.6)),
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        leftAccent.withValues(alpha: 0.7),
+                        leftAccent.withValues(alpha: 0.15),
+                      ],
+                    ),
+                  ),
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,7 +132,16 @@ class _EventPortalCardState extends State<EventPortalCard> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: card.isLive ? AppTheme.errorColor.withValues(alpha: 0.04) : null,
+          gradient: card.isLive
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.errorColor.withValues(alpha: 0.08),
+                    Colors.transparent,
+                  ],
+                )
+              : null,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.mdValue)),
         ),
         child: Row(
@@ -474,7 +503,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
             if (onTap != null && !showNavArrow && inlineMode)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Icon(Icons.chevron_right, size: 12, color: AppTheme.textSecondaryOf(context)),
+                child: Icon(Icons.chevron_right_rounded, size: 14, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.5)),
               ),
           ],
         ),
@@ -516,7 +545,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
                     decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),
                     child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600)),
                   ),
-                Icon(Icons.expand_less, size: 14, color: AppTheme.textSecondaryOf(context)),
+                Transform.rotate(
+                  angle: 1.5708, // 90 degrees — points down when expanded
+                  child: Icon(Icons.chevron_right_rounded, size: 14, color: (color ?? AppTheme.accentColor).withValues(alpha: 0.5)),
+                ),
               ],
             ),
           ),

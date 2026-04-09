@@ -9,11 +9,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/chat_firebase_provider.dart';
 import '../chat/my_events_tab.dart' as chat_tab;
+import '../chat/portal_sheet.dart';
 import '../../providers/event_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/press_feedback.dart';
 import '../../widgets/kyc_required_banner.dart';
-import '../../widgets/tickets_bottom_sheet.dart';
 import '../chat/conversations_screen.dart';
 import '../notification/notification_screen.dart';
 import 'tabs/explore_tab.dart';
@@ -253,15 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showTicketsSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const TicketsBottomSheet(),
-    );
-  }
-
   Widget _buildHeaderIcons(bool hasChatTab) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -386,9 +377,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        // Customers: Tickets tab opens a bottom sheet instead of switching pages
-        if (!hasChatTab && index == 3) {
-          _showTicketsSheet();
+        // Portal tab: all users get a sheet first, "Full View" switches to the tab
+        if (index == 3) {
+          showPortalSheet(context, onFullView: () {
+            setState(() => _navIndex = 3);
+          });
           return;
         }
         if (_navIndex == index) return;

@@ -116,6 +116,52 @@ Run these in separate terminals. Ensure .env is configured before starting the b
 
 ---
 
+## Firebase Chat Listener (Real-time)
+
+  cd Backend
+  source venv/bin/activate
+
+  # Foreground (see logs in terminal):
+  python3 -u -c "
+from app.worker.firebase_chat_listener import start_listener
+import time, signal, sys
+
+def handle_signal(sig, frame):
+    print('Listener shutting down', flush=True)
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_signal)
+signal.signal(signal.SIGINT, handle_signal)
+
+start_listener()
+print('Firebase chat listener running.', flush=True)
+
+while True:
+    time.sleep(60)
+"
+
+  # Background (logs to file):
+  cd Backend && source venv/bin/activate && nohup python3 -u -c "
+from app.worker.firebase_chat_listener import start_listener
+import time, signal, sys
+signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+start_listener()
+while True:
+    time.sleep(60)
+" > /tmp/firebase_listener.log 2>&1 &
+
+  # View logs:
+  tail -f /tmp/firebase_listener.log
+
+  # Stop:
+  pkill -f "firebase_chat_listener"
+
+  Requires Firebase RTDB credentials configured.
+  Handles: unread count updates, last_message sync, reaction aggregation.
+  Run in a separate terminal alongside the backend + ARQ worker.
+
+---
+
 ## Admin User Management
 
   cd Backend
@@ -170,5 +216,8 @@ Run these in separate terminals. Ensure .env is configured before starting the b
 
   ARQ Worker: cd Backend && source venv/bin/activate && arq app.worker.main.WorkerSettings
   ARQ (bg):   cd Backend && nohup ./venv/bin/python -m arq app.worker.main.WorkerSettings > /tmp/arq_worker.log 2>&1 &
+
+  Chat Listener: cd Backend && source venv/bin/activate && python3 -u -c "from app.worker.firebase_chat_listener import start_listener; import time; start_listener(); [time.sleep(60) for _ in iter(int,1)]"
+  Chat (bg):  cd Backend && source venv/bin/activate && nohup python3 -u -c "from app.worker.firebase_chat_listener import start_listener; import time; start_listener(); exec('while True: time.sleep(60)')" > /tmp/firebase_listener.log 2>&1 &
 
   Fix perms:  sudo chown -R $(whoami) /home/shafkat/development/flutter/bin/cache/

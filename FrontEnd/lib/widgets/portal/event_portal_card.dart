@@ -260,7 +260,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
               unread: conv.unreadCount,
               child: _ChatExpanded(
                 conversationId: conv.conversationId,
-                onViewAll: () => context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}'),
+                onViewAll: () async {
+                  await context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                  if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
+                },
               ),
             )
           : _collapsedRow(
@@ -280,9 +283,11 @@ class _EventPortalCardState extends State<EventPortalCard> {
                         _initConversation(context);
                       }
                     }
-                  : () {
+                  : () async {
                       if (hasConv) {
-                        context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                        await context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                        // Refresh unread counts when returning from DM
+                        if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
                       } else {
                         _initConversation(context);
                       }
@@ -1087,9 +1092,10 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
     final initial = (conv.participantName ?? '?')[0].toUpperCase();
     final hasUnread = conv.unreadCount > 0;
     return InkWell(
-      onTap: () {
+      onTap: () async {
         final name = conv.participantName ?? 'Customer';
-        context.push('/chat/dm/${conv.conversationId}?name=${Uri.encodeComponent(name)}&writable=${conv.isOpen}');
+        await context.push('/chat/dm/${conv.conversationId}?name=${Uri.encodeComponent(name)}&writable=${conv.isOpen}');
+        if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),

@@ -151,9 +151,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(card.eventTitle,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.textPrimaryOf(context))),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: AppTheme.textPrimaryOf(context), letterSpacing: -0.1),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (card.venueName != null)
-                    Text(card.venueName!, style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context))),
+                    Text(card.venueName!, style: TextStyle(fontSize: 8, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7))),
                 ],
               ),
             ),

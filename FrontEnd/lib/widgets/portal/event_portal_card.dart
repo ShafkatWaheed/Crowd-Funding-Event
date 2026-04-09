@@ -342,6 +342,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
         context,
         icon: icon,
         label: label,
+        subtitle: 'Announcements & messages',
         onTap: inlineMode
             ? () => onToggleExpand?.call(_key(expandKey))
             : () => context.push('/chat/organizer-hub/${card.eventId}'),
@@ -575,10 +576,12 @@ class _EventPortalCardState extends State<EventPortalCard> {
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          color: AppTheme.surfaceOf(context).withValues(alpha: 0.5),
-          child: child,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: child,
+          ),
         ),
       ],
     );

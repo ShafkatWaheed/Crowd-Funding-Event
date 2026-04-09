@@ -67,9 +67,11 @@ class _EventPortalCardState extends State<EventPortalCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _header(context),
-            if (card.channel != null || card.isOrganizer) _announcementSection(context),
+            if (card.channel != null || card.isOrganizer) _announcementSection(context, 'customer'),
+            if (card.isOrganizer) _announcementSection(context, 'sponsor'),
             if (!card.isOrganizer) _chatSection(context),
-            if (card.isOrganizer) _organizerConversationsRow(context),
+            if (card.isOrganizer) _organizerConversationsRow(context, 'customer'),
+            if (card.isOrganizer) _organizerConversationsRow(context, 'sponsor'),
             if (card.isOrganizer) _scannerRow(context),
             if (card.bidInfo != null) _bidRow(context),
             ...card.tickets.map((t) => _ticketSection(context, t)),
@@ -144,10 +146,15 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   // ── Announcements ─────────────────────────────────────
 
-  Widget _announcementSection(BuildContext context) {
-    final channelId = card.channel?.channelId ?? 'event_${card.eventId}_customer';
+  Widget _announcementSection(BuildContext context, String type) {
+    final channelId = type == 'customer'
+        ? (card.channel?.channelId ?? 'event_${card.eventId}_customer')
+        : 'event_${card.eventId}_sponsor';
     final isOrgView = card.isOrganizer;
-    final expanded = inlineMode && _isExpanded('announcements') && card.channel != null;
+    final label = type == 'customer' ? 'Customer Announcements' : 'Sponsor Announcements';
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+    final expandKey = 'announcements_$type';
+    final expanded = inlineMode && _isExpanded(expandKey) && (card.channel != null || type == 'sponsor');
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
@@ -156,11 +163,11 @@ class _EventPortalCardState extends State<EventPortalCard> {
       child: expanded
           ? _expandedSection(
               context,
-              key: 'announcements',
+              key: expandKey,
               icon: Icons.campaign_rounded,
-              label: 'Announcements',
-              color: AppTheme.accentColor,
-              unread: card.channelUnreadCount,
+              label: label,
+              color: color,
+              unread: type == 'customer' ? card.channelUnreadCount : 0,
               child: _AnnouncementExpanded(
                 channelId: channelId,
                 isOrganizer: isOrgView,
@@ -170,10 +177,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
           : _collapsedRow(
               context,
               icon: Icons.campaign_rounded,
-              label: 'Announcements',
-              unread: card.channelUnreadCount,
+              label: label,
+              unread: type == 'customer' ? card.channelUnreadCount : 0,
               onTap: inlineMode
-                  ? (card.channel != null ? () => onToggleExpand?.call(_key('announcements')) : null)
+                  ? () => onToggleExpand?.call(_key(expandKey))
                   : () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               showNavArrow: !inlineMode,
             ),
@@ -249,20 +256,25 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   // ── Organizer: Customer Conversations ──────────────────
 
-  Widget _organizerConversationsRow(BuildContext context) {
-    if (inlineMode && _isExpanded('org_messages')) {
+  Widget _organizerConversationsRow(BuildContext context, String type) {
+    final expandKey = 'org_messages_$type';
+    final label = type == 'customer' ? 'Customer Messages' : 'Sponsor Messages';
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+
+    if (inlineMode && _isExpanded(expandKey)) {
       return AnimatedSize(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topCenter,
         child: _expandedSection(
           context,
-          key: 'org_messages',
+          key: expandKey,
           icon: Icons.forum_rounded,
-          label: 'Customer Messages',
-          color: AppTheme.accentColor,
+          label: label,
+          color: color,
           child: _OrganizerDmList(
             eventId: card.eventId,
+            typeFilter: type,
             onViewAll: () => context.push('/chat/organizer-hub/${card.eventId}'),
           ),
         ),
@@ -275,9 +287,9 @@ class _EventPortalCardState extends State<EventPortalCard> {
       child: _collapsedRow(
         context,
         icon: Icons.forum_rounded,
-        label: 'Customer Messages',
+        label: label,
         onTap: inlineMode
-            ? () => onToggleExpand?.call(_key('org_messages'))
+            ? () => onToggleExpand?.call(_key(expandKey))
             : () => context.push('/chat/organizer-hub/${card.eventId}'),
         showNavArrow: !inlineMode,
       ),
@@ -912,9 +924,10 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 
 class _OrganizerDmList extends StatefulWidget {
   final int eventId;
+  final String typeFilter;
   final VoidCallback onViewAll;
 
-  const _OrganizerDmList({required this.eventId, required this.onViewAll});
+  const _OrganizerDmList({required this.eventId, this.typeFilter = 'customer', required this.onViewAll});
 
   @override
   State<_OrganizerDmList> createState() => _OrganizerDmListState();
@@ -934,7 +947,7 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
     try {
       final convs = await context
           .read<ChatFirebaseProvider>()
-          .getEventConversations(widget.eventId, typeFilter: 'customer');
+          .getEventConversations(widget.eventId, typeFilter: widget.typeFilter);
       if (mounted) {
         setState(() {
           _conversations = convs.take(5).toList();

@@ -21,6 +21,7 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
   List<DmConversation> _customerConvs = [];
   List<DmConversation> _sponsorConvs = [];
   bool _loading = true;
+  String _search = '';
 
   @override
   void initState() {
@@ -50,6 +51,18 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
     final customerChannelId = 'event_${widget.eventId}_customer';
     final sponsorChannelId = 'event_${widget.eventId}_sponsor';
 
+    final q = _search.toLowerCase();
+    final filteredCustomers = _search.isEmpty
+        ? _customerConvs
+        : _customerConvs.where((c) =>
+            (c.participantName?.toLowerCase().contains(q) ?? false) ||
+            (c.lastMessageText?.toLowerCase().contains(q) ?? false)).toList();
+    final filteredSponsors = _search.isEmpty
+        ? _sponsorConvs
+        : _sponsorConvs.where((c) =>
+            (c.participantName?.toLowerCase().contains(q) ?? false) ||
+            (c.lastMessageText?.toLowerCase().contains(q) ?? false)).toList();
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
@@ -58,11 +71,41 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadAll,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
+          : Column(
+              children: [
+                // Search bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+                  child: TextField(
+                    onChanged: (v) => setState(() => _search = v),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
+                    decoration: InputDecoration(
+                      hintText: 'Search conversations...',
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.6)),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 12, right: 8),
+                        child: Icon(Icons.search_rounded, size: 18, color: AppTheme.accentColor.withValues(alpha: 0.6)),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppTheme.inputFillOf(context),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: AppRadius.md,
+                        borderSide: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.3), width: 1),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadAll,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      children: [
                   // ── CUSTOMERS ──────────────────────────────
                   _sectionHeader('CUSTOMERS', AppTheme.accentColor),
 
@@ -75,10 +118,10 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
 
-                  if (_customerConvs.isEmpty)
-                    _emptyConvs('No customer messages yet')
+                  if (filteredCustomers.isEmpty)
+                    _emptyConvs(_search.isEmpty ? 'No customer messages yet' : 'No matching customers')
                   else
-                    ..._customerConvs.map((conv) => _ConversationTile(conversation: conv)),
+                    ...filteredCustomers.map((conv) => _ConversationTile(conversation: conv)),
 
                   const SizedBox(height: AppSpacing.xl),
 
@@ -94,12 +137,15 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
 
-                  if (_sponsorConvs.isEmpty)
-                    _emptyConvs('No sponsor messages yet')
+                  if (filteredSponsors.isEmpty)
+                    _emptyConvs(_search.isEmpty ? 'No sponsor messages yet' : 'No matching sponsors')
                   else
-                    ..._sponsorConvs.map((conv) => _ConversationTile(conversation: conv)),
-                ],
-              ),
+                    ...filteredSponsors.map((conv) => _ConversationTile(conversation: conv)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }

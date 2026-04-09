@@ -214,7 +214,24 @@ class ChatFirebaseProvider extends ChangeNotifier {
   }
 
   Future<ChatPost> createPost(String channelId, String body, {String msgType = 'text'}) async {
-    return _repo.createPost(channelId, CreatePostRequest(body: body, msgType: msgType));
+    try {
+      return await _repo.createPost(channelId, CreatePostRequest(body: body, msgType: msgType));
+    } catch (e) {
+      // If channel doesn't exist (404), auto-create it then retry
+      if (e.toString().contains('404') || e.toString().contains('Not Found')) {
+        // Parse event_id and type from channelId: "event_{id}_{type}"
+        final parts = channelId.split('_');
+        if (parts.length >= 3) {
+          final eventId = int.tryParse(parts[1]);
+          final type = parts.last; // "customer" or "sponsor"
+          if (eventId != null) {
+            await _repo.createChannel(CreateChannelRequest(eventId: eventId, channelType: type));
+            return await _repo.createPost(channelId, CreatePostRequest(body: body, msgType: msgType));
+          }
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<void> reactToPost(

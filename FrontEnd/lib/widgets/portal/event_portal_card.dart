@@ -271,7 +271,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
               trailing: !hasConv
                   ? Text('New', style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600))
                   : null,
-              meta: hasConv ? conv.lastMessageText : null,
+              subtitle: hasConv ? conv.lastMessageText : null,
               onTap: inlineMode
                   ? () {
                       if (hasConv) {
@@ -463,14 +463,16 @@ class _EventPortalCardState extends State<EventPortalCard> {
     required String label,
     int unread = 0,
     String? meta,
+    String? subtitle, // last message preview (Messenger-style)
     Widget? trailing,
     VoidCallback? onTap,
     bool showNavArrow = false,
   }) {
+    final hasUnread = unread > 0;
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: 5),
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: subtitle != null ? 6 : 5),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
         ),
@@ -479,17 +481,36 @@ class _EventPortalCardState extends State<EventPortalCard> {
             Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(fontSize: 10, color: AppTheme.textPrimaryOf(context)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: hasUnread ? FontWeight.w700 : FontWeight.normal,
+                        color: AppTheme.textPrimaryOf(context),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  if (subtitle != null)
+                    Text(subtitle,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
+                          color: hasUnread ? AppTheme.textPrimaryOf(context).withValues(alpha: 0.8) : AppTheme.textSecondaryOf(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                ],
+              ),
             ),
             if (meta != null)
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(meta, style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context)), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-            if (unread > 0)
+            if (hasUnread)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),

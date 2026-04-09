@@ -50,8 +50,6 @@ import '../screens/organizer/faq_screen.dart';
 import '../screens/event/event_faq_screen.dart';
 import '../screens/event/live_poll_screen.dart';
 import '../screens/chat/announcement_channel_screen.dart';
-import '../screens/chat/bid_chat_screen.dart';
-import '../screens/chat/conversations_screen.dart';
 import '../screens/chat/dm_chat_screen.dart';
 import '../screens/chat/organizer_event_chat_hub.dart';
 import '../screens/chat/organizer_inbox_screen.dart';
@@ -421,32 +419,7 @@ GoRouter createRouter(AuthProvider authProvider) {
         },
       ),
 
-      // ─── Chat (fade-through) ───
-      GoRoute(
-        path: '/chat',
-        pageBuilder: (context, state) =>
-            fadeThroughPage(child: const ConversationsScreen()),
-      ),
-      GoRoute(
-        path: '/chat/bid/:bidId',
-        pageBuilder: (context, state) {
-          final bidId = int.parse(state.pathParameters['bidId']!);
-          final name = state.uri.queryParameters['name'];
-          final writable = state.uri.queryParameters['writable'] != 'false';
-          final eventIdStr = state.uri.queryParameters['eventId'];
-          final eventId = eventIdStr != null ? int.tryParse(eventIdStr) : null;
-          return sharedAxisPage(
-            child: BidChatScreen(
-              bidId: bidId,
-              participantName: name,
-              isWritable: writable,
-              eventId: eventId,
-            ),
-          );
-        },
-      ),
-
-      // ─── Firebase Chat (new) ───
+      // ─── Chat (Firebase) ───
       GoRoute(
         path: '/chat/channel/:channelId',
         pageBuilder: (context, state) {

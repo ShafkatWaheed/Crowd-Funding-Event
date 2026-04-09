@@ -7,7 +7,7 @@ import '../../config/theme.dart';
 import '../../models/chat.dart';
 import '../../providers/chat_firebase_provider.dart';
 
-/// Event chat hub for organizers — Phase 1: Customer section only.
+/// Event chat hub for organizers — shows both Customer and Sponsor sections.
 class OrganizerEventChatHub extends StatefulWidget {
   final int eventId;
 
@@ -18,23 +18,26 @@ class OrganizerEventChatHub extends StatefulWidget {
 }
 
 class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
-  List<DmConversation> _conversations = [];
+  List<DmConversation> _customerConvs = [];
+  List<DmConversation> _sponsorConvs = [];
   bool _loading = true;
+  String _search = '';
 
   @override
   void initState() {
     super.initState();
-    _loadConversations();
+    _loadAll();
   }
 
-  Future<void> _loadConversations() async {
+  Future<void> _loadAll() async {
     try {
-      final convs = await context
-          .read<ChatFirebaseProvider>()
-          .getEventConversations(widget.eventId, typeFilter: 'customer');
+      final provider = context.read<ChatFirebaseProvider>();
+      final customers = await provider.getEventConversations(widget.eventId, typeFilter: 'customer');
+      final sponsors = await provider.getEventConversations(widget.eventId, typeFilter: 'sponsor');
       if (mounted) {
         setState(() {
-          _conversations = convs;
+          _customerConvs = customers;
+          _sponsorConvs = sponsors;
           _loading = false;
         });
       }
@@ -45,7 +48,20 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
 
   @override
   Widget build(BuildContext context) {
-    final channelId = 'event_${widget.eventId}_customer';
+    final customerChannelId = 'event_${widget.eventId}_customer';
+    final sponsorChannelId = 'event_${widget.eventId}_sponsor';
+
+    final q = _search.toLowerCase();
+    final filteredCustomers = _search.isEmpty
+        ? _customerConvs
+        : _customerConvs.where((c) =>
+            (c.participantName?.toLowerCase().contains(q) ?? false) ||
+            (c.lastMessageText?.toLowerCase().contains(q) ?? false)).toList();
+    final filteredSponsors = _search.isEmpty
+        ? _sponsorConvs
+        : _sponsorConvs.where((c) =>
+            (c.participantName?.toLowerCase().contains(q) ?? false) ||
+            (c.lastMessageText?.toLowerCase().contains(q) ?? false)).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
@@ -55,59 +71,105 @@ class _OrganizerEventChatHubState extends State<OrganizerEventChatHub> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadConversations,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  // Section header: Customers
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Text(
-                      'CUSTOMERS',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.accentColor,
-                        letterSpacing: 0.5,
+          : Column(
+              children: [
+                // Search bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+                  child: TextField(
+                    onChanged: (v) => setState(() => _search = v),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context)),
+                    decoration: InputDecoration(
+                      hintText: 'Search conversations...',
+                      hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.6)),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 12, right: 8),
+                        child: Icon(Icons.search_rounded, size: 18, color: AppTheme.accentColor.withValues(alpha: 0.6)),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppTheme.inputFillOf(context),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: AppRadius.md, borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: AppRadius.md,
+                        borderSide: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.3), width: 1),
                       ),
                     ),
                   ),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadAll,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      children: [
+                  // ── CUSTOMERS ──────────────────────────────
+                  _sectionHeader('CUSTOMERS', AppTheme.accentColor),
 
-                  // Announcements row
                   _SectionTile(
                     icon: Icons.campaign_rounded,
                     iconColor: AppTheme.accentColor,
-                    title: 'Announcements',
+                    title: 'Customer Announcements',
                     subtitle: 'Post announcements to customers',
-                    onTap: () => context.push(
-                      '/chat/channel/$channelId?organizer=true',
-                    ),
+                    onTap: () => context.push('/chat/channel/$customerChannelId?organizer=true'),
                   ),
-
                   const SizedBox(height: AppSpacing.sm),
 
-                  // Individual DMs
-                  if (_conversations.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                      child: Center(
-                        child: Text(
-                          'No customer messages yet',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryOf(context),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    )
+                  if (filteredCustomers.isEmpty)
+                    _emptyConvs(_search.isEmpty ? 'No customer messages yet' : 'No matching customers')
                   else
-                    ..._conversations.map((conv) => _ConversationTile(
-                          conversation: conv,
-                        )),
-                ],
-              ),
+                    ...filteredCustomers.map((conv) => _ConversationTile(conversation: conv)),
+
+                  const SizedBox(height: AppSpacing.xl),
+
+                  // ── SPONSORS ───────────────────────────────
+                  _sectionHeader('SPONSORS', AppTheme.warningColor),
+
+                  _SectionTile(
+                    icon: Icons.campaign_rounded,
+                    iconColor: AppTheme.warningColor,
+                    title: 'Sponsor Announcements',
+                    subtitle: 'Post announcements to sponsors',
+                    onTap: () => context.push('/chat/channel/$sponsorChannelId?organizer=true'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  if (filteredSponsors.isEmpty)
+                    _emptyConvs(_search.isEmpty ? 'No sponsor messages yet' : 'No matching sponsors')
+                  else
+                    ...filteredSponsors.map((conv) => _ConversationTile(conversation: conv)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
+    );
+  }
+
+  Widget _sectionHeader(String label, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          Container(width: 3, height: 14, decoration: BoxDecoration(color: color, borderRadius: AppRadius.pill)),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyConvs(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Center(
+        child: Text(text, style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 12)),
+      ),
     );
   }
 }
@@ -131,36 +193,20 @@ class _SectionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: iconColor.withValues(alpha: 0.08),
+        color: iconColor.withValues(alpha: 0.06),
         borderRadius: AppRadius.md,
-        border: Border.all(color: iconColor.withValues(alpha: 0.15)),
+        border: Border.all(color: iconColor.withValues(alpha: 0.12)),
       ),
       child: ListTile(
         onTap: onTap,
         leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 18, color: iconColor),
+          width: 34, height: 34,
+          decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(9)),
+          child: Icon(icon, size: 17, color: iconColor),
         ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: AppTheme.textPrimaryOf(context),
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 11,
-            color: AppTheme.textSecondaryOf(context),
-          ),
-        ),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppTheme.textPrimaryOf(context))),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+        trailing: Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textSecondaryOf(context)),
       ),
     );
   }
@@ -173,6 +219,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasUnread = conversation.unreadCount > 0;
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
@@ -182,58 +229,47 @@ class _ConversationTile extends StatelessWidget {
       ),
       child: ListTile(
         onTap: () {
-          final name = conversation.participantName ?? 'Customer';
-          final writable = conversation.isOpen;
-          context.push(
-            '/chat/dm/${conversation.conversationId}?name=${Uri.encodeComponent(name)}&writable=$writable',
-          );
+          final name = conversation.participantName ?? 'User';
+          context.push('/chat/dm/${conversation.conversationId}?name=${Uri.encodeComponent(name)}&writable=${conversation.isOpen}');
         },
         leading: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
+          radius: 17,
+          backgroundColor: hasUnread
+              ? AppTheme.accentColor.withValues(alpha: 0.12)
+              : AppTheme.textSecondaryOf(context).withValues(alpha: 0.08),
           child: Text(
             (conversation.participantName ?? '?')[0].toUpperCase(),
             style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: AppTheme.textPrimaryOf(context),
+              fontWeight: FontWeight.w600, fontSize: 13,
+              color: hasUnread ? AppTheme.accentColor : AppTheme.textPrimaryOf(context),
             ),
           ),
         ),
         title: Text(
-          conversation.participantName ?? 'Customer',
+          conversation.participantName ?? 'User',
           style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+            fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 12,
             color: AppTheme.textPrimaryOf(context),
           ),
         ),
         subtitle: conversation.lastMessageText != null
             ? Text(
                 conversation.lastMessageText!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondaryOf(context),
+                  fontSize: 10,
+                  fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
+                  color: hasUnread ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context),
                 ),
               )
             : null,
-        trailing: conversation.unreadCount > 0
+        trailing: hasUnread
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${conversation.unreadCount}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(10)),
+                child: Text('${conversation.unreadCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
               )
             : null,
       ),

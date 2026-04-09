@@ -48,30 +48,76 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final isExpanded = expandedKey != null && expandedKey!.startsWith('${card.eventId}_');
+
+    // Role-specific left border accent
+    final leftAccent = card.isOrganizer
+        ? AppTheme.accentColor
+        : card.bidInfo != null
+            ? AppTheme.warningColor
+            : null;
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: card.isCompleted ? 0.5 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: AppTheme.cardOf(context),
           borderRadius: AppRadius.md,
           border: Border.all(
             color: card.isLive
                 ? AppTheme.errorColor.withValues(alpha: 0.25)
-                : AppTheme.dividerOf(context),
+                : isExpanded
+                    ? AppTheme.accentColor.withValues(alpha: 0.15)
+                    : AppTheme.dividerOf(context),
           ),
+          // Card lifts when a section is expanded
+          boxShadow: isExpanded ? AppShadow.cardHover(isDark) : AppShadow.soft(isDark),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _header(context),
-            if (card.channel != null) _announcementSection(context),
-            _chatSection(context),
-            if (card.bidInfo != null) _bidRow(context),
-            ...card.tickets.map((t) => _ticketSection(context, t)),
-          ],
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              // Left accent bar — gradient top-to-bottom
+              if (leftAccent != null)
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        leftAccent.withValues(alpha: 0.7),
+                        leftAccent.withValues(alpha: 0.15),
+                      ],
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _header(context),
+                    if (card.isOrganizer) ...[
+                      _audienceGroupRow(context, 'customer'),
+                      _audienceGroupRow(context, 'sponsor'),
+                      if (card.isLive) _scannerRow(context),
+                    ] else ...[
+                      if (card.channel != null) _announcementSection(context, 'customer'),
+                      _chatSection(context),
+                    ],
+                    if (card.bidInfo != null) _bidRow(context),
+                    ...card.tickets.map((t) => _ticketSection(context, t)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -84,9 +130,18 @@ class _EventPortalCardState extends State<EventPortalCard> {
       onTap: () => context.push('/events/${card.eventId}'),
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.mdValue)),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm + 2),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: card.isLive ? AppTheme.errorColor.withValues(alpha: 0.04) : null,
+          gradient: card.isLive
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.errorColor.withValues(alpha: 0.08),
+                    Colors.transparent,
+                  ],
+                )
+              : null,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.mdValue)),
         ),
         child: Row(
@@ -96,9 +151,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(card.eventTitle,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.textPrimaryOf(context))),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: AppTheme.textPrimaryOf(context), letterSpacing: -0.1),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (card.venueName != null)
-                    Text(card.venueName!, style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context))),
+                    Text(card.venueName!, style: TextStyle(fontSize: 8, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.7))),
                 ],
               ),
             ),
@@ -142,8 +198,16 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
   // ── Announcements ─────────────────────────────────────
 
-  Widget _announcementSection(BuildContext context) {
-    final expanded = inlineMode && _isExpanded('announcements');
+  Widget _announcementSection(BuildContext context, String type) {
+    final channelId = type == 'customer'
+        ? (card.channel?.channelId ?? 'event_${card.eventId}_customer')
+        : 'event_${card.eventId}_sponsor';
+    final isOrgView = card.isOrganizer;
+    final label = type == 'customer' ? 'Customer Announcements' : 'Sponsor Announcements';
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+    final expandKey = 'announcements_$type';
+    final expanded = inlineMode && _isExpanded(expandKey) && (card.channel != null || type == 'sponsor');
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOutCubic,
@@ -151,24 +215,25 @@ class _EventPortalCardState extends State<EventPortalCard> {
       child: expanded
           ? _expandedSection(
               context,
-              key: 'announcements',
+              key: expandKey,
               icon: Icons.campaign_rounded,
-              label: 'Announcements',
-              color: AppTheme.accentColor,
-              unread: card.channelUnreadCount,
+              label: label,
+              color: color,
+              unread: type == 'customer' ? card.channelUnreadCount : 0,
               child: _AnnouncementExpanded(
-                channelId: card.channel!.channelId,
-                onViewAll: () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+                channelId: channelId,
+                isOrganizer: isOrgView,
+                onViewAll: () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               ),
             )
           : _collapsedRow(
               context,
               icon: Icons.campaign_rounded,
-              label: 'Announcements',
-              unread: card.channelUnreadCount,
+              label: label,
+              unread: type == 'customer' ? card.channelUnreadCount : 0,
               onTap: inlineMode
-                  ? () => onToggleExpand?.call(_key('announcements'))
-                  : () => context.push('/chat/channel/${card.channel!.channelId}?organizer=false'),
+                  ? () => onToggleExpand?.call(_key(expandKey))
+                  : () => context.push('/chat/channel/$channelId?organizer=$isOrgView'),
               showNavArrow: !inlineMode,
             ),
     );
@@ -195,7 +260,10 @@ class _EventPortalCardState extends State<EventPortalCard> {
               unread: conv.unreadCount,
               child: _ChatExpanded(
                 conversationId: conv.conversationId,
-                onViewAll: () => context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}'),
+                onViewAll: () async {
+                  await context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                  if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
+                },
               ),
             )
           : _collapsedRow(
@@ -206,7 +274,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
               trailing: !hasConv
                   ? Text('New', style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600))
                   : null,
-              meta: hasConv ? conv.lastMessageText : null,
+              subtitle: hasConv ? conv.lastMessageText : null,
               onTap: inlineMode
                   ? () {
                       if (hasConv) {
@@ -215,9 +283,11 @@ class _EventPortalCardState extends State<EventPortalCard> {
                         _initConversation(context);
                       }
                     }
-                  : () {
+                  : () async {
                       if (hasConv) {
-                        context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                        await context.push('/chat/dm/${conv.conversationId}?name=Organizer&writable=${conv.isOpen}');
+                        // Refresh unread counts when returning from DM
+                        if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
                       } else {
                         _initConversation(context);
                       }
@@ -239,6 +309,92 @@ class _EventPortalCardState extends State<EventPortalCard> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
+  }
+
+  // ── Organizer: Audience Group (Customers / Sponsors) ───
+
+  Widget _audienceGroupRow(BuildContext context, String type) {
+    final expandKey = 'audience_$type';
+    final label = type == 'customer' ? 'Customers' : 'Sponsors';
+    final icon = type == 'customer' ? Icons.people_rounded : Icons.business_rounded;
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+
+    if (inlineMode && _isExpanded(expandKey)) {
+      return AnimatedSize(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topCenter,
+        child: _expandedSection(
+          context,
+          key: expandKey,
+          icon: icon,
+          label: label,
+          color: color,
+          child: _AudienceGroupExpanded(
+            eventId: card.eventId,
+            type: type,
+            channelId: 'event_${card.eventId}_$type',
+            onViewAll: () => context.push('/chat/organizer-hub/${card.eventId}'),
+          ),
+        ),
+      );
+    }
+    final unreadCount = type == 'customer' ? card.customerUnreadCount : card.sponsorUnreadCount;
+    final subtitle = unreadCount > 0
+        ? '$unreadCount new message${unreadCount > 1 ? 's' : ''}'
+        : 'Announcements & messages';
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: _collapsedRow(
+        context,
+        icon: icon,
+        label: label,
+        subtitle: subtitle,
+        unread: unreadCount,
+        onTap: inlineMode
+            ? () => onToggleExpand?.call(_key(expandKey))
+            : () => context.push('/chat/organizer-hub/${card.eventId}'),
+        showNavArrow: !inlineMode,
+      ),
+    );
+  }
+
+  // ── Organizer: Scanner ────────────────────────────────
+
+  Widget _scannerRow(BuildContext context) {
+    return InkWell(
+      onTap: () => context.push('/events/${card.eventId}/scan?title=${Uri.encodeComponent(card.eventTitle)}'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withValues(alpha: 0.08),
+                border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.15)),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.qr_code_scanner_rounded, size: 14, color: AppTheme.successColor),
+                  const SizedBox(width: 5),
+                  Text('Scan Tickets',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.successColor)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Bid Status ────────────────────────────────────────
@@ -319,14 +475,16 @@ class _EventPortalCardState extends State<EventPortalCard> {
     required String label,
     int unread = 0,
     String? meta,
+    String? subtitle, // last message preview (Messenger-style)
     Widget? trailing,
     VoidCallback? onTap,
     bool showNavArrow = false,
   }) {
+    final hasUnread = unread > 0;
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm - 1),
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: subtitle != null ? 6 : 5),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
         ),
@@ -335,17 +493,36 @@ class _EventPortalCardState extends State<EventPortalCard> {
             Icon(icon, size: 14, color: AppTheme.textSecondaryOf(context)),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(fontSize: 10, color: AppTheme.textPrimaryOf(context)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: hasUnread ? FontWeight.w700 : FontWeight.normal,
+                        color: AppTheme.textPrimaryOf(context),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  if (subtitle != null)
+                    Text(subtitle,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
+                          color: hasUnread ? AppTheme.textPrimaryOf(context).withValues(alpha: 0.8) : AppTheme.textSecondaryOf(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                ],
+              ),
             ),
             if (meta != null)
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Text(meta, style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context)), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-            if (unread > 0)
+            if (hasUnread)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),
@@ -360,7 +537,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
             if (onTap != null && !showNavArrow && inlineMode)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Icon(Icons.chevron_right, size: 12, color: AppTheme.textSecondaryOf(context)),
+                child: Icon(Icons.chevron_right_rounded, size: 14, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.5)),
               ),
           ],
         ),
@@ -383,7 +560,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
         InkWell(
           onTap: () => onToggleExpand?.call(_key(key)),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: AppSpacing.sm - 1),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 2, vertical: 5),
             decoration: BoxDecoration(
               color: (color ?? AppTheme.accentColor).withValues(alpha: 0.04),
               border: Border(top: BorderSide(color: AppTheme.dividerOf(context), width: 0.3)),
@@ -402,15 +579,20 @@ class _EventPortalCardState extends State<EventPortalCard> {
                     decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),
                     child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600)),
                   ),
-                Icon(Icons.expand_less, size: 14, color: AppTheme.textSecondaryOf(context)),
+                Transform.rotate(
+                  angle: 1.5708, // 90 degrees — points down when expanded
+                  child: Icon(Icons.chevron_right_rounded, size: 14, color: (color ?? AppTheme.accentColor).withValues(alpha: 0.5)),
+                ),
               ],
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          color: AppTheme.surfaceOf(context).withValues(alpha: 0.5),
-          child: child,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: child,
+          ),
         ),
       ],
     );
@@ -421,44 +603,101 @@ class _EventPortalCardState extends State<EventPortalCard> {
 
 class _AnnouncementExpanded extends StatefulWidget {
   final String channelId;
+  final bool isOrganizer;
   final VoidCallback onViewAll;
 
-  const _AnnouncementExpanded({required this.channelId, required this.onViewAll});
+  const _AnnouncementExpanded({required this.channelId, this.isOrganizer = false, required this.onViewAll});
 
   @override
   State<_AnnouncementExpanded> createState() => _AnnouncementExpandedState();
 }
 
 class _AnnouncementExpandedState extends State<_AnnouncementExpanded> {
+  final _composeCtrl = TextEditingController();
+  bool _posting = false;
   StreamSubscription? _sub;
   List<ChatPost> _posts = [];
 
   @override
   void initState() {
     super.initState();
-    _sub = context.read<ChatFirebaseRepository>().watchPosts(widget.channelId).listen((posts) {
-      if (mounted) setState(() => _posts = posts.reversed.take(3).toList());
-    });
+    _sub = context.read<ChatFirebaseRepository>().watchPosts(widget.channelId).listen(
+      (posts) {
+        if (mounted) setState(() => _posts = posts.reversed.take(3).toList());
+      },
+      onError: (_) {}, // Channel may not exist yet — ignore permission errors
+    );
   }
 
   @override
   void dispose() {
+    _composeCtrl.dispose();
     _sub?.cancel();
     super.dispose();
   }
 
+  Future<void> _postAnnouncement() async {
+    final body = _composeCtrl.text.trim();
+    if (body.isEmpty) return;
+    debugPrint('Portal: posting announcement to ${widget.channelId}: "$body"');
+    setState(() => _posting = true);
+    try {
+      await context.read<ChatFirebaseProvider>().createPost(widget.channelId, body);
+      debugPrint('Portal: post succeeded');
+      _composeCtrl.clear();
+    } catch (e) {
+      debugPrint('Portal: post failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to post: $e')));
+      }
+    }
+    if (mounted) setState(() => _posting = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_posts.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Text('No announcements yet', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
-      );
-    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ..._posts.map((post) => _InlinePost(post: post, channelId: widget.channelId)),
+        if (widget.isOrganizer) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _composeCtrl,
+                  onSubmitted: (_) => _postAnnouncement(),
+                  style: const TextStyle(fontSize: 10),
+                  decoration: InputDecoration(
+                    hintText: 'Write an announcement...',
+                    hintStyle: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context)),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    border: OutlineInputBorder(borderRadius: AppRadius.sm, borderSide: BorderSide(color: AppTheme.dividerOf(context))),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: _posting ? null : _postAnnouncement,
+                child: Container(
+                  width: 24, height: 24,
+                  decoration: BoxDecoration(color: AppTheme.accentColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                  child: _posting
+                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5))
+                      : Icon(Icons.arrow_upward, size: 14, color: AppTheme.accentColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+        ],
+        if (_posts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Text('No announcements yet', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+          )
+        else
+          ..._posts.map((post) => _InlinePost(post: post, channelId: widget.channelId)),
         InkWell(
           onTap: widget.onViewAll,
           child: Padding(
@@ -491,9 +730,10 @@ class _InlinePostState extends State<_InlinePost> {
     super.initState();
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      _sub = context.read<ChatFirebaseRepository>().watchUserReaction(widget.channelId, widget.post.postId, uid).listen((r) {
-        if (mounted) setState(() => _myReaction = r);
-      });
+      _sub = context.read<ChatFirebaseRepository>().watchUserReaction(widget.channelId, widget.post.postId, uid).listen(
+        (r) { if (mounted) setState(() => _myReaction = r); },
+        onError: (_) {},
+      );
     }
   }
 
@@ -586,9 +826,10 @@ class _ChatExpandedState extends State<_ChatExpanded> {
   @override
   void initState() {
     super.initState();
-    _sub = context.read<ChatFirebaseRepository>().watchMessages(widget.conversationId).listen((msgs) {
-      if (mounted) setState(() => _messages = msgs.reversed.take(3).toList().reversed.toList());
-    });
+    _sub = context.read<ChatFirebaseRepository>().watchMessages(widget.conversationId).listen(
+      (msgs) { if (mounted) setState(() => _messages = msgs.reversed.take(3).toList().reversed.toList()); },
+      onError: (_) {},
+    );
   }
 
   @override
@@ -772,6 +1013,219 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
           shape: BoxShape.circle,
         ),
       ),
+    );
+  }
+}
+
+// ── Organizer: inline DM list (top 5) ───────────────────
+
+class _OrganizerDmList extends StatefulWidget {
+  final int eventId;
+  final String typeFilter;
+  final VoidCallback onViewAll;
+
+  const _OrganizerDmList({required this.eventId, this.typeFilter = 'customer', required this.onViewAll});
+
+  @override
+  State<_OrganizerDmList> createState() => _OrganizerDmListState();
+}
+
+class _OrganizerDmListState extends State<_OrganizerDmList> {
+  List<DmConversation> _conversations = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final convs = await context
+          .read<ChatFirebaseProvider>()
+          .getEventConversations(widget.eventId, typeFilter: widget.typeFilter);
+      if (mounted) {
+        setState(() {
+          _conversations = convs.take(5).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(8),
+        child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_conversations.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Text('No customer messages yet',
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryOf(context))),
+          )
+        else
+          ..._conversations.map((conv) => _dmItem(context, conv)),
+        InkWell(
+          onTap: widget.onViewAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text('View All Conversations →',
+                style: TextStyle(fontSize: 9, color: AppTheme.accentColor, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dmItem(BuildContext context, DmConversation conv) {
+    final initial = (conv.participantName ?? '?')[0].toUpperCase();
+    final hasUnread = conv.unreadCount > 0;
+    return InkWell(
+      onTap: () async {
+        final name = conv.participantName ?? 'Customer';
+        await context.push('/chat/dm/${conv.conversationId}?name=${Uri.encodeComponent(name)}&writable=${conv.isOpen}');
+        if (context.mounted) context.read<ChatFirebaseProvider>().loadMyEvents();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: hasUnread
+                  ? AppTheme.accentColor.withValues(alpha: 0.15)
+                  : AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
+              child: Text(initial,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: hasUnread ? AppTheme.accentColor : AppTheme.textPrimaryOf(context),
+                  )),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(conv.participantName ?? 'Customer',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context),
+                      )),
+                  if (conv.lastMessageText != null)
+                    Text(conv.lastMessageText!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                          color: hasUnread ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context),
+                        )),
+                ],
+              ),
+            ),
+            if (conv.unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(color: AppTheme.accentColor, borderRadius: BorderRadius.circular(6)),
+                child: Text('${conv.unreadCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600)),
+              ),
+            if (conv.lastMessageAt != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(_timeAgo(conv.lastMessageAt!),
+                    style: TextStyle(fontSize: 8, color: AppTheme.textSecondaryOf(context))),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _timeAgo(int ms) {
+    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true));
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return '${diff.inDays}d';
+  }
+}
+
+// ── Organizer: combined audience group (announcements + DMs) ──
+
+class _AudienceGroupExpanded extends StatelessWidget {
+  final int eventId;
+  final String type;
+  final String channelId;
+  final VoidCallback onViewAll;
+
+  const _AudienceGroupExpanded({
+    required this.eventId,
+    required this.type,
+    required this.channelId,
+    required this.onViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = type == 'customer' ? 'Customer' : 'Sponsor';
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Announcements sub-section
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              Icon(Icons.campaign_rounded, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text('$label Announcements',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        ),
+        _AnnouncementExpanded(
+          channelId: channelId,
+          isOrganizer: true,
+          onViewAll: () => context.push('/chat/channel/$channelId?organizer=true'),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Messages sub-section
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              Icon(Icons.forum_rounded, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text('$label Messages',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        ),
+        _OrganizerDmList(
+          eventId: eventId,
+          typeFilter: type,
+          onViewAll: onViewAll,
+        ),
+      ],
     );
   }
 }

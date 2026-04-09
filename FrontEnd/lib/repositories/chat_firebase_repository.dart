@@ -24,8 +24,16 @@ class ChatFirebaseRepository extends BaseRepository {
     return _ref('channels/$channelId').onValue.map((event) {
       final data = event.snapshot.value as Map?;
       if (data == null) return null;
-      return ChatChannel.fromFirebase(channelId, Map<String, dynamic>.from(data));
+      return ChatChannel.fromFirebase(channelId, _deepCast(data));
     });
+  }
+
+  /// One-shot read of channel data (not a stream). Returns raw map or null.
+  Future<Map<String, dynamic>?> getChannelOnce(String channelId) async {
+    final snap = await _ref('channels/$channelId').get();
+    final data = snap.value as Map?;
+    if (data == null) return null;
+    return _deepCast(data);
   }
 
   Stream<List<ChatPost>> watchPosts(String channelId) {
@@ -38,12 +46,20 @@ class ChatFirebaseRepository extends BaseRepository {
           posts.add(ChatPost.fromFirebase(
             key.toString(),
             channelId,
-            Map<String, dynamic>.from(value),
+            _deepCast(value),
           ));
         }
       });
       posts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return posts;
+    });
+  }
+
+  // Deep-convert Firebase LinkedMap to Map<String, dynamic>.
+  static Map<String, dynamic> _deepCast(Map map) {
+    return map.map((key, value) {
+      if (value is Map) return MapEntry(key.toString(), _deepCast(value));
+      return MapEntry(key.toString(), value);
     });
   }
 
@@ -123,7 +139,7 @@ class ChatFirebaseRepository extends BaseRepository {
         if (value is Map) {
           messages.add(DmMessage.fromFirebase(
             key.toString(),
-            Map<String, dynamic>.from(value),
+            _deepCast(value),
           ));
         }
       });

@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'package:crowd_funding_app/models/event.dart';
 import 'package:crowd_funding_app/models/user.dart';
 import 'package:crowd_funding_app/providers/auth_provider.dart';
-import 'package:crowd_funding_app/providers/chat_provider.dart';
 import 'package:crowd_funding_app/providers/chat_firebase_provider.dart';
 import 'package:crowd_funding_app/providers/event_provider.dart';
 import 'package:crowd_funding_app/providers/notification_provider.dart';
@@ -24,7 +23,6 @@ void main() {
   late MockAuthProvider mockAuth;
   late MockEventProvider mockEvent;
   late MockNotificationProvider mockNotif;
-  late MockChatProvider mockChat;
   late MockChatFirebaseProvider mockChatFirebase;
   late MockEventRepository mockEventRepo;
 
@@ -32,7 +30,6 @@ void main() {
     mockAuth = MockAuthProvider();
     mockEvent = MockEventProvider();
     mockNotif = MockNotificationProvider();
-    mockChat = MockChatProvider();
     mockChatFirebase = MockChatFirebaseProvider();
     mockEventRepo = MockEventRepository();
 
@@ -59,17 +56,14 @@ void main() {
     when(() => mockNotif.addListener(any())).thenReturn(null);
     when(() => mockNotif.removeListener(any())).thenReturn(null);
 
-    when(() => mockChat.totalUnreadCount).thenReturn(0);
-    when(() => mockChat.conversationsLoading).thenReturn(false);
-    when(() => mockChat.conversations).thenReturn([]);
-    when(() => mockChat.loadConversations()).thenAnswer((_) async {});
-    when(() => mockChat.addListener(any())).thenReturn(null);
-    when(() => mockChat.removeListener(any())).thenReturn(null);
-
     when(() => mockChatFirebase.totalUnreadCount).thenReturn(0);
     when(() => mockChatFirebase.loadingMyEvents).thenReturn(false);
     when(() => mockChatFirebase.myEventCards).thenReturn([]);
-    when(() => mockChatFirebase.loadMyEvents()).thenAnswer((_) async {});
+    when(() => mockChatFirebase.myEventsError).thenReturn(null);
+    when(() => mockChatFirebase.loadMyEvents(
+          userId: any(named: 'userId'),
+          isOrganizer: any(named: 'isOrganizer'),
+        )).thenAnswer((_) async {});
     when(() => mockChatFirebase.addListener(any())).thenReturn(null);
     when(() => mockChatFirebase.removeListener(any())).thenReturn(null);
 
@@ -94,7 +88,6 @@ void main() {
       ChangeNotifierProvider<AuthProvider>.value(value: mockAuth),
       ChangeNotifierProvider<EventProvider>.value(value: mockEvent),
       ChangeNotifierProvider<NotificationProvider>.value(value: mockNotif),
-      ChangeNotifierProvider<ChatProvider>.value(value: mockChat),
       ChangeNotifierProvider<ChatFirebaseProvider>.value(value: mockChatFirebase),
     ];
   }

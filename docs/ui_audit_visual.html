@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Audit — Crowd Funding Event</title>
+<style>
+  :root {
+    --bg: #0e0e12;
+    --card: #1a1a24;
+    --card2: #222230;
+    --text: #eaeaea;
+    --text2: #9e9e9e;
+    --accent: #276EF1;
+    --green: #05944F;
+    --red: #E11900;
+    --warning: #FFC043;
+    --teal: #0D9488;
+    --purple: #9333EA;
+    --orange: #FF8C00;
+    --divider: #2c2c2c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 24px;
+  }
+  h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+  h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px; font-weight: 700; margin: 48px 0 16px; letter-spacing: -0.3px; }
+  h3 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 12px; }
+  p.subtitle { color: var(--text2); font-size: 14px; margin-bottom: 32px; }
+
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  /* ── Toggle tabs ── */
+  .tab-row { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 8px 18px; border-radius: 100px; border: 1px solid var(--divider);
+    background: transparent; color: var(--text2); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Comparison layout ── */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  @media (max-width: 800px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { background: var(--card); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
+  .compare-col::before {
+    content: attr(data-label);
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 100px;
+  }
+  .compare-col.current::before { background: var(--red); color: #fff; }
+  .compare-col.proposed::before { background: var(--green); color: #fff; }
+
+  /* ── Section ── */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── Severity badges ── */
+  .severity { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-left: 8px; vertical-align: middle; }
+  .severity.critical { background: rgba(225,25,0,0.15); color: #ff6b4a; }
+  .severity.high { background: rgba(255,192,67,0.15); color: var(--warning); }
+  .severity.medium { background: rgba(39,110,241,0.15); color: #5b8def; }
+
+  /* ── Mock phone frame ── */
+  .phone {
+    width: 340px; min-height: 200px;
+    background: var(--bg); border-radius: 28px;
+    border: 2px solid #333; padding: 16px;
+    margin: 0 auto; position: relative;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .phone::before {
+    content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 80px; height: 4px; background: #333; border-radius: 4px;
+  }
+
+  /* ── Pill/chip mockups ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 12px; border-radius: 100px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
+    white-space: nowrap; margin: 3px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pill-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+
+  /* Specific pill colors */
+  .pill-status { background: rgba(77,182,172,0.2); color: #4db6ac; }
+  .pill-status .dot { background: #4db6ac; }
+  .pill-genre { background: rgba(102,187,106,0.2); color: #66bb6a; }
+  .pill-engagement { background: rgba(39,110,241,0.2); color: #5b8def; }
+  .pill-organizer { background: rgba(39,110,241,0.2); color: #5b8def; }
+  .pill-trust { background: rgba(102,187,106,0.1); color: #66bb6a; border: 1px solid rgba(102,187,106,0.3); }
+  .pill-revenue { background: rgba(77,182,172,0.2); color: #4db6ac; }
+  .pill-live { background: rgba(5,148,79,0.2); color: #66bb6a; }
+  .pill-live .dot { background: #66bb6a; box-shadow: 0 0 5px rgba(102,187,106,0.6); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ── Hero chip mockups ── */
+  .hero-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 100px;
+    background: rgba(0,0,0,0.5); color: #fff;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    margin: 2px;
+  }
+
+  /* ── Frosted badge ── */
+  .frosted {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 100px;
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+    margin: 2px;
+  }
+  .frosted.age { background: rgba(225,25,0,0.7); border-color: rgba(255,255,255,0.25); }
+
+  /* ── Filter chip ── */
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 100px;
+    background: var(--card2); color: var(--text2);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid transparent; white-space: nowrap; margin: 3px;
+    transition: all 0.2s;
+  }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filter-chip .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── Mock image area ── */
+  .mock-image {
+    width: 100%; aspect-ratio: 16/10; border-radius: 14px;
+    background: linear-gradient(135deg, #1b1b2f, #162447);
+    position: relative; overflow: hidden; margin-bottom: 8px;
+  }
+  .mock-image .overlay {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 12px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  }
+  .mock-image .title { color: #fff; font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+
+  /* ── Info rows ── */
+  .info-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    font-size: 13px; color: var(--text2); border-bottom: 1px solid var(--divider);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-icon {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--card2);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+  }
+
+  /* ── Stat chip ── */
+  .stat-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 6px;
+    background: var(--card2); border: 0.8px solid var(--divider);
+    font-size: 11px; font-weight: 600; color: var(--text2); margin: 2px;
+  }
+
+  /* ── Annotation callouts ── */
+  .callout {
+    margin: 12px 0; padding: 10px 14px; border-radius: 10px;
+    background: rgba(225,25,0,0.08); border-left: 3px solid var(--red);
+    font-size: 12px; color: #ff9e9e; line-height: 1.5;
+  }
+  .callout.good {
+    background: rgba(5,148,79,0.08); border-color: var(--green);
+    color: #7ddeaa;
+  }
+  .callout.info {
+    background: rgba(39,110,241,0.08); border-color: var(--accent);
+    color: #8fb8f8;
+  }
+
+  /* ── Filter section mockup ── */
+  .filter-section { padding: 8px 0; }
+  .filter-label { font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .chip-scroll { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+
+  /* ── Search bar mockup ── */
+  .search-bar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    background: var(--card2); border-radius: 12px; margin-bottom: 12px;
+    color: var(--text2); font-size: 14px;
+  }
+
+  /* ── Density meter ── */
+  .density-meter { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+  .meter-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--card2); overflow: hidden; }
+  .meter-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+  .meter-label { font-size: 11px; font-weight: 700; min-width: 40px; text-align: right; }
+
+  /* ── Summary table ── */
+  .summary-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .summary-table th, .summary-table td { padding: 10px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--divider); }
+  .summary-table th { color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-table td:first-child { font-weight: 600; }
+
+  /* ── Collapse animation ── */
+  .collapsible { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+  .collapsible.open { max-height: 500px; }
+  .toggle-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 8px;
+    background: var(--card2); border: 1px solid var(--divider);
+    color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; margin: 8px 0;
+  }
+  .toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+  .toggle-btn .arrow { transition: transform 0.3s; }
+  .toggle-btn.open .arrow { transform: rotate(180deg); }
+
+  /* ── Strikethrough for removed elements ── */
+  .removed { opacity: 0.3; text-decoration: line-through; position: relative; }
+  .removed::after {
+    content: 'REMOVE'; position: absolute; top: -6px; right: -4px;
+    font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+    background: var(--red); color: #fff; letter-spacing: 0.5px; text-decoration: none;
+  }
+
+  /* ── Glow for new/moved elements ── */
+  .moved { position: relative; }
+  .moved::after {
+    content: 'MOVED'; position: absolute; top: -6px; right: -4px;
+    font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+    background: var(--accent); color: #fff; letter-spacing: 0.5px;
+  }
+  .new-el { position: relative; }
+  .new-el::after {
+    content: 'NEW'; position: absolute; top: -6px; right: -4px;
+    font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+    background: var(--green); color: #fff; letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>UI Audit Visualization</h1>
+<p class="subtitle">Current state vs. proposed improvements for the 3 most cluttered areas</p>
+
+<div class="tab-row">
+  <button class="tab-btn active" onclick="showSection('detail')">Event Detail Title Card</button>
+  <button class="tab-btn" onclick="showSection('card')">Event Card</button>
+  <button class="tab-btn" onclick="showSection('filters')">Home Tab Filters</button>
+  <button class="tab-btn" onclick="showSection('summary')">Summary Table</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 1: EVENT DETAIL TITLE CARD                               -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="detail" class="section active">
+
+<h2>Event Detail &mdash; Title Card Pills <span class="severity critical">CRITICAL</span></h2>
+<p style="color:var(--text2); font-size:13px; margin-bottom:20px;">
+  7 pills compete for attention simultaneously. On a 360px mobile screen, they wrap into 3+ rows of tiny colorful badges.
+</p>
+
+<div class="density-meter">
+  <span style="font-size:11px;color:var(--text2);">Visual density</span>
+  <div class="meter-bar"><div class="meter-fill" style="width:90%;background:linear-gradient(90deg,var(--warning),var(--red));"></div></div>
+  <span class="meter-label" style="color:#ff6b4a;">9/10</span>
+</div>
+
+<div class="compare">
+  <!-- CURRENT -->
+  <div class="compare-col current" data-label="CURRENT">
+    <div class="phone">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;margin-top:8px;">
+        Community Tech Festival 2026
+      </div>
+      <div class="pill-wrap">
+        <span class="pill pill-status"><span class="dot"></span> Selling Tickets</span>
+        <span class="pill pill-genre">&#x1F3B5; Music</span>
+        <span class="pill pill-engagement">&#x1F465; 142 engaged</span>
+        <span class="pill pill-organizer">&#x1F464; John Smith</span>
+        <span class="pill pill-trust">&#x2714; Excellent 92%</span>
+        <span class="pill pill-revenue">&#x1F4B0; $4,200</span>
+      </div>
+
+      <div class="callout" style="margin-top:16px;">
+        <strong>Problem:</strong> 6 pills with 6 different colors. User doesn't know where to look.
+        The trust badge, engagement count, and revenue pill add noise &mdash; organizer info is repeated
+        in the section below anyway.
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="compare-col proposed" data-label="PROPOSED">
+    <div class="phone">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;margin-top:8px;">
+        Community Tech Festival 2026
+      </div>
+      <div class="pill-wrap">
+        <span class="pill pill-status"><span class="dot"></span> Selling Tickets</span>
+        <span class="pill pill-genre">&#x1F3B5; Music</span>
+        <span class="pill pill-organizer">&#x1F464; John Smith</span>
+      </div>
+
+      <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--divider);">
+        <button class="toggle-btn" onclick="this.classList.toggle('open'); document.getElementById('detail-extra').classList.toggle('open');">
+          Event Info <span class="arrow">&#x25BC;</span>
+        </button>
+        <div id="detail-extra" class="collapsible">
+          <div style="padding:8px 0; display:flex; flex-wrap:wrap; gap:6px;">
+            <span class="pill pill-engagement moved">&#x1F465; 142 engaged</span>
+            <span class="pill pill-trust moved">&#x2714; Excellent 92%</span>
+            <span class="pill pill-revenue moved">&#x1F4B0; $4,200</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout good" style="margin-top:16px;">
+        <strong>Result:</strong> 3 pills visible by default. Secondary info is one tap away.
+        Reduces visual density from 9/10 to 4/10.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Color count comparison -->
+<h3>Color Count on Screen</h3>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+  <div style="background:var(--card); border-radius:12px; padding:16px;">
+    <div style="font-size:12px; color:var(--text2); margin-bottom:8px;">CURRENT: 18-22 colors</div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px;">
+      <span style="width:20px;height:20px;border-radius:4px;background:#276EF1;" title="accent"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#05944F;" title="green"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#E11900;" title="red"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#FFC043;" title="warning"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#9333EA;" title="purple"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#FF8C00;" title="orange"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#0891B2;" title="cyan"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#0D9488;" title="teal"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#4DB6AC;" title="selling"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#FFB74D;" title="pending"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#66BB6A;" title="trustHigh"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#EF5350;" title="errorDk"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#42A5F5;" title="live"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#BB86FC;" title="purpleDk"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#E040FB;" title="magenta"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#C026D3;" title="donate"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#9E9E9E;" title="completed"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#5B8DEF;" title="accentDk"></span>
+    </div>
+  </div>
+  <div style="background:var(--card); border-radius:12px; padding:16px;">
+    <div style="font-size:12px; color:var(--text2); margin-bottom:8px;">PROPOSED: 8-10 colors</div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px;">
+      <span style="width:20px;height:20px;border-radius:4px;background:#276EF1;" title="accent"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#05944F;" title="green"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#4DB6AC;" title="teal"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#9E9E9E;" title="secondary"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#FFB74D;" title="warning"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#EF5350;" title="error"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#66BB6A;" title="success"></span>
+      <span style="width:20px;height:20px;border-radius:4px;background:#EAEAEA;" title="text"></span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 2: EVENT CARD                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="card" class="section">
+
+<h2>Event Card &mdash; Information Layers <span class="severity critical">CRITICAL</span></h2>
+<p style="color:var(--text2); font-size:13px; margin-bottom:20px;">
+  8 visual elements compete in the header image. Status is double-encoded (gradient + badge). 3 stat chips + 3 info rows in the body.
+</p>
+
+<div class="density-meter">
+  <span style="font-size:11px;color:var(--text2);">Visual density</span>
+  <div class="meter-bar"><div class="meter-fill" style="width:80%;background:linear-gradient(90deg,var(--warning),var(--red));"></div></div>
+  <span class="meter-label" style="color:#ff6b4a;">8/10</span>
+</div>
+
+<div class="compare">
+  <!-- CURRENT -->
+  <div class="compare-col current" data-label="CURRENT">
+    <div class="phone">
+      <div class="mock-image" style="background:linear-gradient(135deg, #0D3B32, #162447);">
+        <div class="overlay">
+          <!-- Hero chips -->
+          <div style="margin-bottom:6px;">
+            <span class="hero-chip">&#x1F4B0; PLEDGED</span>
+            <span class="hero-chip">&#x1F3AB; ATTENDING</span>
+            <span class="hero-chip">&#x1F91D; SPONSORED</span>
+          </div>
+          <!-- Status badges -->
+          <div style="margin-bottom:6px; display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span class="frosted"><span style="color:#4db6ac;">&#x1F3AB;</span> Selling Tickets</span>
+            <span style="font-size:14px; color:rgba(255,255,255,0.7);">&#x1F512;</span>
+            <span class="frosted age">18+</span>
+            <span style="margin-left:auto;font-size:16px;color:rgba(255,255,255,0.8);">&#x2661;</span>
+          </div>
+          <div class="title">Annual Tech Conference</div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:10px 4px;">
+        <div class="info-row"><div class="info-icon">&#x1F4C5;</div> Sat, Apr 12 &middot; 7:00 PM</div>
+        <div class="info-row"><div class="info-icon">&#x1F4CD;</div> Grand Convention Center, NYC</div>
+        <div class="info-row"><div class="info-icon">&#x1F3B5;</div> Technology &middot; Business</div>
+        <div style="display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;">
+          <span class="stat-chip">&#x2764; 24</span>
+          <span class="stat-chip">&#x1F465; 142</span>
+          <span class="stat-chip">&#x1F3AB; 89 sold</span>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:8px;">
+        <strong>Problems:</strong><br>
+        &bull; Status gradient on image + frosted badge = double encoding<br>
+        &bull; 3 hero chips only useful to the buyer, wasted space for everyone else<br>
+        &bull; Age badge rarely needed, competes with status badge<br>
+        &bull; 14 distinct visual elements total
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="compare-col proposed" data-label="PROPOSED">
+    <div class="phone">
+      <div class="mock-image" style="background:linear-gradient(135deg, #1b1b2f, #162447);">
+        <div class="overlay">
+          <!-- Simplified: single activity indicator -->
+          <div style="margin-bottom:6px;">
+            <span class="frosted new-el" style="border-color:rgba(102,187,106,0.4);">
+              <span style="color:#66bb6a;">&#x2714;</span> Your Activity
+            </span>
+          </div>
+          <!-- Just status badge -->
+          <div style="margin-bottom:6px; display:flex; align-items:center; gap:4px;">
+            <span class="frosted"><span style="color:#4db6ac;">&#x1F3AB;</span> Selling Tickets</span>
+            <span style="margin-left:auto;font-size:16px;color:rgba(255,255,255,0.8);">&#x2661;</span>
+          </div>
+          <div class="title">Annual Tech Conference</div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:10px 4px;">
+        <div class="info-row"><div class="info-icon">&#x1F4C5;</div> Sat, Apr 12 &middot; 7:00 PM</div>
+        <div class="info-row"><div class="info-icon">&#x1F4CD;</div> Grand Convention Center, NYC</div>
+        <div style="display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;">
+          <span class="stat-chip">&#x2764; 24</span>
+          <span class="stat-chip">&#x1F3AB; 89 sold</span>
+        </div>
+      </div>
+
+      <div class="callout good" style="margin-top:8px;">
+        <strong>Changes:</strong><br>
+        &bull; 3 hero chips &rarr; 1 "Your Activity" indicator (expands on detail screen)<br>
+        &bull; Removed status gradient (badge alone carries status)<br>
+        &bull; Age badge moved to detail screen only<br>
+        &bull; Genre removed from card (visible in filters already)<br>
+        &bull; 14 elements &rarr; 7 elements
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Element count comparison -->
+<h3>Element Count</h3>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+  <div style="background:var(--card); border-radius:12px; padding:16px;">
+    <div style="font-size:12px; color:var(--text2); margin-bottom:10px;">CURRENT (14 elements)</div>
+    <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
+      <span style="color:var(--text2);">&#x25CF; Status gradient (background)</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Hero chip: Pledged</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Hero chip: Attending</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Hero chip: Sponsored</span>
+      <span style="color:var(--text2);">&#x25CF; Frosted status badge</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Lock icon (private)</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Age restriction badge</span>
+      <span style="color:var(--text2);">&#x25CF; Bookmark icon</span>
+      <span style="color:var(--text2);">&#x25CF; Title</span>
+      <span style="color:var(--text2);">&#x25CF; Date info row</span>
+      <span style="color:var(--text2);">&#x25CF; Location info row</span>
+      <span class="removed" style="display:inline-block;color:#ff6b4a;">&#x25CF; Genre info row</span>
+      <span style="color:var(--text2);">&#x25CF; Stat chips (likes, attendees, tickets)</span>
+      <span style="color:var(--text2);">&#x25CF; Funding bar</span>
+    </div>
+  </div>
+  <div style="background:var(--card); border-radius:12px; padding:16px;">
+    <div style="font-size:12px; color:var(--text2); margin-bottom:10px;">PROPOSED (8 elements)</div>
+    <div style="display:flex;flex-direction:column;gap:3px;font-size:12px;">
+      <span style="color:#7ddeaa;">&#x25CF; Your Activity indicator (1 chip, expandable)</span>
+      <span style="color:var(--text2);">&#x25CF; Frosted status badge</span>
+      <span style="color:var(--text2);">&#x25CF; Bookmark icon</span>
+      <span style="color:var(--text2);">&#x25CF; Title</span>
+      <span style="color:var(--text2);">&#x25CF; Date info row</span>
+      <span style="color:var(--text2);">&#x25CF; Location info row</span>
+      <span style="color:var(--text2);">&#x25CF; Stat chips (likes + tickets)</span>
+      <span style="color:var(--text2);">&#x25CF; Funding bar</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 3: HOME TAB FILTERS                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="filters" class="section">
+
+<h2>Home Tab &mdash; Filter Section <span class="severity high">HIGH</span></h2>
+<p style="color:var(--text2); font-size:13px; margin-bottom:20px;">
+  3 horizontal chip scroll rows + search bar visible at once. On mobile, filters take up ~45% of screen before any content appears.
+</p>
+
+<div class="density-meter">
+  <span style="font-size:11px;color:var(--text2);">Visual density</span>
+  <div class="meter-bar"><div class="meter-fill" style="width:70%;background:linear-gradient(90deg,var(--accent),var(--warning));"></div></div>
+  <span class="meter-label" style="color:var(--warning);">7/10</span>
+</div>
+
+<div class="compare">
+  <!-- CURRENT -->
+  <div class="compare-col current" data-label="CURRENT">
+    <div class="phone">
+      <div class="search-bar">
+        &#x1F50D; &nbsp; Search events, venues, genres...
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Genre</div>
+        <div class="chip-scroll">
+          <span class="filter-chip active"><span class="chip-dot" style="background:#BB86FC;"></span> Music</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#90CAF9;"></span> Tech</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#66BB6A;"></span> Sports</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#FFB74D;"></span> Community</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#E040FB;"></span> Arts</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#FFB74D;"></span> Food</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#EF5350;"></span> Charity</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#4DB6AC;"></span> Education</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">Status</div>
+        <div class="chip-scroll">
+          <span class="filter-chip"><span class="chip-dot" style="background:#66BB6A;"></span> Funding</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#FFB74D;"></span> Awaiting</span>
+          <span class="filter-chip active"><span class="chip-dot" style="background:#4DB6AC;"></span> Selling</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#42A5F5;"></span> Live</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="filter-label">City</div>
+        <div class="chip-scroll">
+          <span class="filter-chip active">All Cities</span>
+          <span class="filter-chip">New York</span>
+          <span class="filter-chip">Los Angeles</span>
+          <span class="filter-chip">Chicago</span>
+          <span class="filter-chip">Miami</span>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:12px;">
+        <strong>Problem:</strong> 3 chip rows + search = ~200px of filter UI before content.
+        On a 680px mobile screen, that's 30% consumed by filters alone.
+        City filter is rarely changed.
+        8 genre chips create a rainbow effect.
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="compare-col proposed" data-label="PROPOSED">
+    <div class="phone">
+      <div class="search-bar">
+        &#x1F50D; &nbsp; Search events, venues, genres...
+      </div>
+
+      <div class="filter-section">
+        <div class="chip-scroll">
+          <span class="filter-chip"><span class="chip-dot" style="background:#66BB6A;"></span> Funding</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#FFB74D;"></span> Awaiting</span>
+          <span class="filter-chip active"><span class="chip-dot" style="background:#4DB6AC;"></span> Selling</span>
+          <span class="filter-chip"><span class="chip-dot" style="background:#42A5F5;"></span> Live</span>
+          <span class="filter-chip" onclick="document.getElementById('adv-filters').classList.toggle('open'); this.classList.toggle('active');" style="border:1px dashed var(--divider);">
+            &#x2699; Filters
+          </span>
+        </div>
+      </div>
+
+      <div id="adv-filters" class="collapsible">
+        <div class="filter-section">
+          <div class="filter-label">Genre</div>
+          <div class="chip-scroll">
+            <span class="filter-chip active"><span class="chip-dot" style="background:#BB86FC;"></span> Music</span>
+            <span class="filter-chip"><span class="chip-dot" style="background:#90CAF9;"></span> Tech</span>
+            <span class="filter-chip"><span class="chip-dot" style="background:#66BB6A;"></span> Sports</span>
+            <span class="filter-chip"><span class="chip-dot" style="background:#FFB74D;"></span> Community</span>
+          </div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-label">City</div>
+          <div class="chip-scroll">
+            <span class="filter-chip active">All Cities</span>
+            <span class="filter-chip">New York</span>
+            <span class="filter-chip">Los Angeles</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout good" style="margin-top:12px;">
+        <strong>Result:</strong> Only search + status chips visible by default (~80px).
+        Genre + city hidden behind "Filters" toggle. Content visible immediately.
+        Filter height reduced from ~200px to ~80px (60% reduction).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Space comparison -->
+<h3>Screen Space Consumed by Filters</h3>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+  <div style="background:var(--card); border-radius:12px; padding:16px; text-align:center;">
+    <div style="font-size:48px; font-weight:800; color:#ff6b4a;">~200px</div>
+    <div style="font-size:12px; color:var(--text2);">30% of a 680px mobile screen</div>
+    <div style="margin-top:10px; height:120px; border-radius:8px; overflow:hidden; position:relative;">
+      <div style="height:52%; background:rgba(225,25,0,0.15); display:flex;align-items:center;justify-content:center;font-size:10px;color:#ff6b4a;font-weight:700;">FILTERS</div>
+      <div style="height:48%; background:var(--card2); display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text2);font-weight:700;">Content</div>
+    </div>
+  </div>
+  <div style="background:var(--card); border-radius:12px; padding:16px; text-align:center;">
+    <div style="font-size:48px; font-weight:800; color:#66bb6a;">~80px</div>
+    <div style="font-size:12px; color:var(--text2);">12% of a 680px mobile screen</div>
+    <div style="margin-top:10px; height:120px; border-radius:8px; overflow:hidden; position:relative;">
+      <div style="height:18%; background:rgba(5,148,79,0.15); display:flex;align-items:center;justify-content:center;font-size:10px;color:#66bb6a;font-weight:700;">FILTERS</div>
+      <div style="height:82%; background:var(--card2); display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text2);font-weight:700;">Content</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 4: SUMMARY TABLE                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div id="summary" class="section">
+
+<h2>All Issues Ranked</h2>
+
+<table class="summary-table">
+  <thead>
+    <tr><th>#</th><th>Issue</th><th>Screen</th><th>Severity</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>7 pills visible simultaneously in title card</td>
+      <td>Event Detail</td>
+      <td><span class="severity critical">CRITICAL</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>8 visual elements in event card header image</td>
+      <td>Event Card</td>
+      <td><span class="severity critical">CRITICAL</span></td>
+      <td style="color:var(--warning);">Medium</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>3 competing horizontal chip rows in filters</td>
+      <td>Home Tab</td>
+      <td><span class="severity high">HIGH</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>18-22 distinct colors on one screen</td>
+      <td>Event Detail</td>
+      <td><span class="severity high">HIGH</span></td>
+      <td style="color:var(--warning);">Medium</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Status double-encoded (gradient + badge on card)</td>
+      <td>Event Card</td>
+      <td><span class="severity medium">MEDIUM</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Hardcoded spacing mixed with design tokens</td>
+      <td>Multiple</td>
+      <td><span class="severity medium">MEDIUM</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Organizer info shown in pill + separate section</td>
+      <td>Event Detail</td>
+      <td><span class="severity medium">MEDIUM</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Inconsistent chip row heights (34/36/38px)</td>
+      <td>Home / Explore</td>
+      <td><span class="severity medium">MEDIUM</span></td>
+      <td style="color:var(--green);">Small</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 style="margin-top:32px;">Impact Estimate</h3>
+<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:12px;">
+  <div style="background:var(--card); border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:36px; font-weight:800; color:#ff6b4a;">14 &rarr; 8</div>
+    <div style="font-size:12px; color:var(--text2); margin-top:4px;">Event card elements</div>
+  </div>
+  <div style="background:var(--card); border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:36px; font-weight:800; color:#66bb6a;">7 &rarr; 3</div>
+    <div style="font-size:12px; color:var(--text2); margin-top:4px;">Detail title card pills</div>
+  </div>
+  <div style="background:var(--card); border-radius:12px; padding:20px; text-align:center;">
+    <div style="font-size:36px; font-weight:800; color:var(--accent);">60%</div>
+    <div style="font-size:12px; color:var(--text2); margin-top:4px;">Filter area reduction</div>
+  </div>
+</div>
+
+</div>
+
+</div><!-- /container -->
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

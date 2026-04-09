@@ -147,6 +147,11 @@ async def get_conversations_for_user(
     user_id: int,
 ) -> list[dict]:
     """List conversations for a user, enriched with Firebase metadata."""
+    from app.repositories.user_repo import user_repo
+
+    user = await user_repo.get_by_id(db, user_id)
+    firebase_uid = user.firebase_uid if user else str(user_id)
+
     convs = await chat_conversation_repo.list_by_user(db, user_id)
     result = []
     for conv in convs:
@@ -162,7 +167,7 @@ async def get_conversations_for_user(
             "last_message_text": fb_data.get("last_message_text") if fb_data else None,
             "last_message_at": fb_data.get("last_message_at") if fb_data else None,
             "unread_count": (
-                fb_data.get("unread", {}).get(str(user_id), 0)
+                fb_data.get("unread", {}).get(firebase_uid, 0)
             ) if fb_data else 0,
         })
     return result
@@ -184,12 +189,15 @@ async def get_conversations_for_event(
     if not await _is_organizer_or_co(db, event, organizer_id):
         raise HTTPException(status_code=403, detail="Not an organizer for this event")
 
+    from app.repositories.user_repo import user_repo
+
+    organizer = await user_repo.get_by_id(db, organizer_id)
+    org_firebase_uid = organizer.firebase_uid if organizer else str(organizer_id)
+
     convs = await chat_conversation_repo.list_by_event(db, event_id, type_filter)
     result = []
     for conv in convs:
         fb_data = firebase_chat_repo.get_conversation(conv.conversation_id)
-        from app.repositories.user_repo import user_repo
-
         participant = await user_repo.get_by_id(db, conv.participant_user_id)
         result.append({
             "conversation_id": conv.conversation_id,
@@ -202,7 +210,7 @@ async def get_conversations_for_event(
             "last_message_text": fb_data.get("last_message_text") if fb_data else None,
             "last_message_at": fb_data.get("last_message_at") if fb_data else None,
             "unread_count": (
-                fb_data.get("unread", {}).get(str(organizer_id), 0)
+                fb_data.get("unread", {}).get(org_firebase_uid, 0)
             ) if fb_data else 0,
         })
     return result

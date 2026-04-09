@@ -532,13 +532,16 @@ class _AnnouncementExpandedState extends State<_AnnouncementExpanded> {
   Future<void> _postAnnouncement() async {
     final body = _composeCtrl.text.trim();
     if (body.isEmpty) return;
+    debugPrint('Portal: posting announcement to ${widget.channelId}: "$body"');
     setState(() => _posting = true);
     try {
       await context.read<ChatFirebaseProvider>().createPost(widget.channelId, body);
+      debugPrint('Portal: post succeeded');
       _composeCtrl.clear();
     } catch (e) {
+      debugPrint('Portal: post failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to post: $e')));
       }
     }
     if (mounted) setState(() => _posting = false);

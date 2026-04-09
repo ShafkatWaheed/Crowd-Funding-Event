@@ -59,7 +59,11 @@ void main() {
     when(() => mockChatFirebase.totalUnreadCount).thenReturn(0);
     when(() => mockChatFirebase.loadingMyEvents).thenReturn(false);
     when(() => mockChatFirebase.myEventCards).thenReturn([]);
-    when(() => mockChatFirebase.loadMyEvents()).thenAnswer((_) async {});
+    when(() => mockChatFirebase.myEventsError).thenReturn(null);
+    when(() => mockChatFirebase.loadMyEvents(
+          userId: any(named: 'userId'),
+          isOrganizer: any(named: 'isOrganizer'),
+        )).thenAnswer((_) async {});
     when(() => mockChatFirebase.addListener(any())).thenReturn(null);
     when(() => mockChatFirebase.removeListener(any())).thenReturn(null);
 

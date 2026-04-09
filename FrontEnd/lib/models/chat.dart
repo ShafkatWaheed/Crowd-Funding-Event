@@ -66,7 +66,8 @@ class ChatPost {
   });
 
   factory ChatPost.fromFirebase(String key, String channelId, Map<String, dynamic> data) {
-    final reactions = data['reaction_counts'] as Map<String, dynamic>? ?? {};
+    final rawReactions = data['reaction_counts'];
+    final reactions = rawReactions is Map ? Map<String, dynamic>.from(rawReactions) : <String, dynamic>{};
     return ChatPost(
       postId: key,
       channelId: channelId,

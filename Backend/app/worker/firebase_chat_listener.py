@@ -14,6 +14,9 @@ from app.repositories.firebase_chat_repo import firebase_chat_repo
 
 logger = get_logger("worker.firebase_chat_listener")
 
+# Cache organizer Firebase UIDs per conv_id (they don't change)
+_organizer_uid_cache: dict[str, str | None] = {}
+
 ROOT = "crowd_funding_chat"
 
 
@@ -49,16 +52,27 @@ def _on_message_event(event):
     try:
         body = data.get("body", "")
         created_at = data.get("created_at", 0)
-        sender_id = str(data.get("sender_id", ""))
+        sender_id = data.get("sender_id")
 
         firebase_chat_repo.update_last_message(conv_id, body, created_at)
 
+        # Determine recipient Firebase UID for unread increment.
+        # conv_id format: event_{eventId}_user_{customerFirebaseUid}
+        # Both participants are in user_conversations/{uid}/{conv_id}
+        conv_parts = conv_id.split("_user_")
+        customer_uid = conv_parts[1] if len(conv_parts) == 2 else None
+
         conv_data = firebase_chat_repo.get_conversation(conv_id)
-        if conv_data:
-            customer_id = str(conv_data.get("customer_user_id", ""))
-            organizer_id = str(conv_data.get("organizer_user_id", ""))
-            recipient_id = organizer_id if sender_id == customer_id else customer_id
-            firebase_chat_repo.increment_unread(conv_id, recipient_id)
+        if conv_data and customer_uid:
+            customer_pg_id = conv_data.get("customer_user_id")
+            # Find organizer UID: check who else has this conv in user_conversations
+            organizer_uid = _resolve_organizer_uid(conv_id, customer_uid)
+
+            if organizer_uid:
+                if sender_id == customer_pg_id:
+                    firebase_chat_repo.increment_unread(conv_id, organizer_uid)
+                else:
+                    firebase_chat_repo.increment_unread(conv_id, customer_uid)
 
         logger.debug("Processed new message", extra={"conv_id": conv_id})
     except Exception:
@@ -90,3 +104,28 @@ def _on_reaction_event(event):
             "Error aggregating reactions",
             extra={"channel_id": channel_id, "post_id": post_id},
         )
+
+
+def _resolve_organizer_uid(conv_id: str, customer_uid: str) -> str | None:
+    """Find the organizer's Firebase UID for a conversation.
+
+    Looks at the user_conversations index to find who else (besides the
+    customer) has this conversation. Caches the result.
+    """
+    if conv_id in _organizer_uid_cache:
+        return _organizer_uid_cache[conv_id]
+
+    try:
+        # Scan user_conversations to find the other participant
+        # This is expensive but only done once per conv_id (cached)
+        ref = get_rtdb_ref(f"{ROOT}/user_conversations")
+        all_users = ref.get() or {}
+        for uid, convs in all_users.items():
+            if uid != customer_uid and isinstance(convs, dict) and conv_id in convs:
+                _organizer_uid_cache[conv_id] = uid
+                return uid
+    except Exception:
+        logger.debug("Could not resolve organizer UID for %s", conv_id)
+
+    _organizer_uid_cache[conv_id] = None
+    return None

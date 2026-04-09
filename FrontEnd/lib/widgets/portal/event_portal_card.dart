@@ -980,6 +980,7 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
 
   Widget _dmItem(BuildContext context, DmConversation conv) {
     final initial = (conv.participantName ?? '?')[0].toUpperCase();
+    final hasUnread = conv.unreadCount > 0;
     return InkWell(
       onTap: () {
         final name = conv.participantName ?? 'Customer';
@@ -991,9 +992,15 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
           children: [
             CircleAvatar(
               radius: 12,
-              backgroundColor: AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
+              backgroundColor: hasUnread
+                  ? AppTheme.accentColor.withValues(alpha: 0.15)
+                  : AppTheme.textSecondaryOf(context).withValues(alpha: 0.1),
               child: Text(initial,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: hasUnread ? AppTheme.accentColor : AppTheme.textPrimaryOf(context),
+                  )),
             ),
             const SizedBox(width: 7),
             Expanded(
@@ -1001,12 +1008,20 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(conv.participantName ?? 'Customer',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryOf(context))),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
+                        color: AppTheme.textPrimaryOf(context),
+                      )),
                   if (conv.lastMessageText != null)
                     Text(conv.lastMessageText!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryOf(context))),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                          color: hasUnread ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context),
+                        )),
                 ],
               ),
             ),

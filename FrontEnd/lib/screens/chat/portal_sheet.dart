@@ -234,7 +234,6 @@ class _PortalSheetContentState extends State<_PortalSheetContent> {
                   ? _emptyState(context)
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      shrinkWrap: true,
                       itemCount: _filtered.length,
                       itemBuilder: (context, index) {
                         // Stagger animation per card

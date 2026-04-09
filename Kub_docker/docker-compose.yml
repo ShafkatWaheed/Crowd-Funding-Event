@@ -91,6 +91,24 @@ services:
       - uploads:/app/static/uploads
       - ${FIREBASE_CRED_PATH}:/app/cred/firebase-credentials.json:ro
 
+  chat-listener:
+    image: crowd-funding-backend:latest
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    command: ["python3", "-u", "-c", "from app.worker.firebase_chat_listener import start_listener; import time; start_listener(); exec('while True: time.sleep(60)')"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/cred/firebase-credentials.json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ${FIREBASE_CRED_PATH:?Set FIREBASE_CRED_PATH in .env}:/app/cred/firebase-credentials.json:ro
+
   frontend:
     build:
       context: ..

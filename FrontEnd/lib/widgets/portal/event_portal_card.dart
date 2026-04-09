@@ -67,12 +67,14 @@ class _EventPortalCardState extends State<EventPortalCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _header(context),
-            if (card.channel != null || card.isOrganizer) _announcementSection(context, 'customer'),
-            if (card.isOrganizer) _announcementSection(context, 'sponsor'),
-            if (!card.isOrganizer) _chatSection(context),
-            if (card.isOrganizer) _organizerConversationsRow(context, 'customer'),
-            if (card.isOrganizer) _organizerConversationsRow(context, 'sponsor'),
-            if (card.isOrganizer) _scannerRow(context),
+            if (card.isOrganizer) ...[
+              _audienceGroupRow(context, 'customer'),
+              _audienceGroupRow(context, 'sponsor'),
+              _scannerRow(context),
+            ] else ...[
+              if (card.channel != null) _announcementSection(context, 'customer'),
+              _chatSection(context),
+            ],
             if (card.bidInfo != null) _bidRow(context),
             ...card.tickets.map((t) => _ticketSection(context, t)),
           ],
@@ -254,11 +256,12 @@ class _EventPortalCardState extends State<EventPortalCard> {
     }
   }
 
-  // ── Organizer: Customer Conversations ──────────────────
+  // ── Organizer: Audience Group (Customers / Sponsors) ───
 
-  Widget _organizerConversationsRow(BuildContext context, String type) {
-    final expandKey = 'org_messages_$type';
-    final label = type == 'customer' ? 'Customer Messages' : 'Sponsor Messages';
+  Widget _audienceGroupRow(BuildContext context, String type) {
+    final expandKey = 'audience_$type';
+    final label = type == 'customer' ? 'Customers' : 'Sponsors';
+    final icon = type == 'customer' ? Icons.people_rounded : Icons.business_rounded;
     final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
 
     if (inlineMode && _isExpanded(expandKey)) {
@@ -269,12 +272,13 @@ class _EventPortalCardState extends State<EventPortalCard> {
         child: _expandedSection(
           context,
           key: expandKey,
-          icon: Icons.forum_rounded,
+          icon: icon,
           label: label,
           color: color,
-          child: _OrganizerDmList(
+          child: _AudienceGroupExpanded(
             eventId: card.eventId,
-            typeFilter: type,
+            type: type,
+            channelId: 'event_${card.eventId}_$type',
             onViewAll: () => context.push('/chat/organizer-hub/${card.eventId}'),
           ),
         ),
@@ -286,7 +290,7 @@ class _EventPortalCardState extends State<EventPortalCard> {
       alignment: Alignment.topCenter,
       child: _collapsedRow(
         context,
-        icon: Icons.forum_rounded,
+        icon: icon,
         label: label,
         onTap: inlineMode
             ? () => onToggleExpand?.call(_key(expandKey))
@@ -1063,5 +1067,71 @@ class _OrganizerDmListState extends State<_OrganizerDmList> {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     if (diff.inHours < 24) return '${diff.inHours}h';
     return '${diff.inDays}d';
+  }
+}
+
+// ── Organizer: combined audience group (announcements + DMs) ──
+
+class _AudienceGroupExpanded extends StatelessWidget {
+  final int eventId;
+  final String type;
+  final String channelId;
+  final VoidCallback onViewAll;
+
+  const _AudienceGroupExpanded({
+    required this.eventId,
+    required this.type,
+    required this.channelId,
+    required this.onViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = type == 'customer' ? 'Customer' : 'Sponsor';
+    final color = type == 'customer' ? AppTheme.accentColor : AppTheme.warningColor;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Announcements sub-section
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              Icon(Icons.campaign_rounded, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text('$label Announcements',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        ),
+        _AnnouncementExpanded(
+          channelId: channelId,
+          isOrganizer: true,
+          onViewAll: () => context.push('/chat/channel/$channelId?organizer=true'),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Messages sub-section
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              Icon(Icons.forum_rounded, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text('$label Messages',
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        ),
+        _OrganizerDmList(
+          eventId: eventId,
+          typeFilter: type,
+          onViewAll: onViewAll,
+        ),
+      ],
+    );
   }
 }

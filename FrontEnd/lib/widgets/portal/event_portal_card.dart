@@ -553,9 +553,12 @@ class _AnnouncementExpandedState extends State<_AnnouncementExpanded> {
   @override
   void initState() {
     super.initState();
-    _sub = context.read<ChatFirebaseRepository>().watchPosts(widget.channelId).listen((posts) {
-      if (mounted) setState(() => _posts = posts.reversed.take(3).toList());
-    });
+    _sub = context.read<ChatFirebaseRepository>().watchPosts(widget.channelId).listen(
+      (posts) {
+        if (mounted) setState(() => _posts = posts.reversed.take(3).toList());
+      },
+      onError: (_) {}, // Channel may not exist yet — ignore permission errors
+    );
   }
 
   @override
@@ -659,9 +662,10 @@ class _InlinePostState extends State<_InlinePost> {
     super.initState();
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      _sub = context.read<ChatFirebaseRepository>().watchUserReaction(widget.channelId, widget.post.postId, uid).listen((r) {
-        if (mounted) setState(() => _myReaction = r);
-      });
+      _sub = context.read<ChatFirebaseRepository>().watchUserReaction(widget.channelId, widget.post.postId, uid).listen(
+        (r) { if (mounted) setState(() => _myReaction = r); },
+        onError: (_) {},
+      );
     }
   }
 
@@ -754,9 +758,10 @@ class _ChatExpandedState extends State<_ChatExpanded> {
   @override
   void initState() {
     super.initState();
-    _sub = context.read<ChatFirebaseRepository>().watchMessages(widget.conversationId).listen((msgs) {
-      if (mounted) setState(() => _messages = msgs.reversed.take(3).toList().reversed.toList());
-    });
+    _sub = context.read<ChatFirebaseRepository>().watchMessages(widget.conversationId).listen(
+      (msgs) { if (mounted) setState(() => _messages = msgs.reversed.take(3).toList().reversed.toList()); },
+      onError: (_) {},
+    );
   }
 
   @override
